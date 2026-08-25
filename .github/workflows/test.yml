@@ -1,0 +1,53 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+      - name: Check installer syntax path
+        run: cmd /c "首次安装与配置.cmd --syntax-check"
+
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Build release assets
+        shell: pwsh
+        run: .\tools\build_release.ps1
+      - name: Verify wheel install
+        shell: pwsh
+        run: |
+          $wheel = Get-ChildItem -LiteralPath .\dist -Filter *.whl | Select-Object -First 1
+          python -m pip install --force-reinstall $wheel.FullName
+          python -c "import workbuddy_qmt; assert workbuddy_qmt.__version__ == '0.3.0'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate
+          path: |
+            dist/*.whl
+            dist/*.zip
+            dist/*.sha256
+            dist/SHA256SUMS.txt

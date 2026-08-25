@@ -1,0 +1,30 @@
+{
+  "protocol_version": "1.0",
+  "profile_id": "REPLACE_AFTER_P0",
+  "qmt_build": "REPLACE_AFTER_P0",
+  "broker_build": "REPLACE_AFTER_P0",
+  "account_type": "STOCK",
+  "strategy_name": "WorkBuddyQMT",
+  "adapter_binding": {
+    "account_alias": "main_stock",
+    "account_type": "STOCK",
+    "adapter_instance": "qmt_stock_01",
+    "qmt_account_id": "REPLACE_ON_QMT_HOST",
+    "strategy_name": "WorkBuddyQMT"
+  },
+  "verified": false,
+  "key_id": "bridge-local-01",
+  "mappings": {
+    "STOCK:STOCK:BUY:LIMIT": {
+      "op_type": 23,
+      "order_type": 1101,
+      "price_type": 11
+    },
+    "STOCK:STOCK:SELL:LIMIT": {
+      "op_type": 24,
+      "order_type": 1101,
+      "price_type": 11
+    }
+  },
+  "signature": ""
+}

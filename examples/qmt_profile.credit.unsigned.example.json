@@ -1,0 +1,19 @@
+{
+  "protocol_version": "1.0",
+  "profile_id": "REPLACE_AFTER_P0",
+  "qmt_build": "REPLACE_AFTER_P0",
+  "broker_build": "REPLACE_AFTER_P0",
+  "account_type": "CREDIT",
+  "strategy_name": "WorkBuddyQMTCredit",
+  "adapter_binding": {
+    "account_alias": "main_credit",
+    "account_type": "CREDIT",
+    "adapter_instance": "qmt_credit_01",
+    "qmt_account_id": "REPLACE_ON_QMT_HOST",
+    "strategy_name": "WorkBuddyQMTCredit"
+  },
+  "verified": false,
+  "key_id": "bridge-local-01",
+  "mappings": {},
+  "signature": ""
+}

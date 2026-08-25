@@ -1,0 +1,49 @@
+name: Bug report
+description: 报告不包含敏感数据的可复现问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        不要提交真实账户号、券商密码、密钥、Worker 令牌、数据库、完整日志或未脱敏截图。
+        安全问题请使用仓库 Security 页面中的私密漏洞报告。
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      placeholder: 0.3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 运行模式
+      options:
+        - OBSERVE_ONLY
+        - SIM_SIGNAL
+        - MANUAL_LIVE
+        - LIMITED_AUTO
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 说明预期行为、实际行为和影响。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 最小复现步骤
+      description: 只提供脱敏后的配置片段和日志。
+    validations:
+      required: true
+  - type: checkboxes
+    id: sanitization
+    attributes:
+      label: 脱敏确认
+      options:
+        - label: 我已移除账户号、委托号、成交号、密钥、令牌、本机用户名和绝对路径。
+          required: true

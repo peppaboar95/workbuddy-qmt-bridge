@@ -1,0 +1,103 @@
+{
+  "data_dir": "../data",
+  "host": "127.0.0.1",
+  "port": 17642,
+  "default_mode": "OBSERVE_ONLY",
+  "max_message_bytes": 65536,
+  "key_file": "../data/secrets/message_keys.json",
+  "worker_token_file": "../data/secrets/worker.token",
+  "accounts": [
+    {
+      "alias": "main_stock",
+      "account_type": "STOCK",
+      "adapter_instance": "qmt_stock_01",
+      "enabled": true,
+      "lot_size": 100,
+      "odd_lot_sell_allowed": true,
+      "instrument_allowlist": [],
+      "limited_auto_credit_enabled": false,
+      "order_volume_rules": {
+        "default": {
+          "min_buy": 100,
+          "min_sell": 100
+        },
+        "prefix_overrides": [
+          {
+            "prefixes": ["688", "689"],
+            "min_buy": 200,
+            "min_sell": 200
+          }
+        ]
+      },
+      "risk_limits": {
+        "max_order_notional": 200000.0,
+        "max_order_volume": 500000,
+        "max_daily_notional": 2000000.0,
+        "min_maintenance_ratio": 1.5,
+        "max_snapshot_age_seconds": 90,
+        "max_quote_age_seconds": 30,
+        "max_credit_snapshot_age_seconds": 600,
+        "preview_ttl_seconds": 120,
+        "command_ttl_seconds": 60,
+        "credit_query_cooldown_seconds": 180,
+        "max_auto_authorization_minutes": 720,
+        "max_auto_session_notional": 2000000.0,
+        "max_auto_orders": 1000,
+        "min_auto_order_interval_seconds": 1,
+        "max_auto_concurrent_orders": 20,
+        "max_auto_symbol_position_notional": 500000.0,
+        "max_auto_account_drawdown": 100000.0,
+        "auto_heartbeat_max_age_seconds": 15,
+        "auto_max_queue_depth": 20
+      }
+    },
+    {
+      "alias": "main_credit",
+      "account_type": "CREDIT",
+      "adapter_instance": "qmt_credit_01",
+      "enabled": false,
+      "lot_size": 100,
+      "odd_lot_sell_allowed": true,
+      "instrument_allowlist": [],
+      "limited_auto_credit_enabled": false,
+      "credit_action_mapping": {
+        "buy": "MARGIN_BUY",
+        "sell": "COLLATERAL_SELL"
+      },
+      "order_volume_rules": {
+        "default": {
+          "min_buy": 100,
+          "min_sell": 100
+        },
+        "prefix_overrides": [
+          {
+            "prefixes": ["688", "689"],
+            "min_buy": 200,
+            "min_sell": 200
+          }
+        ]
+      },
+      "risk_limits": {
+        "max_order_notional": 100000.0,
+        "max_order_volume": 500000,
+        "max_daily_notional": 1000000.0,
+        "min_maintenance_ratio": 1.5,
+        "max_snapshot_age_seconds": 90,
+        "max_quote_age_seconds": 30,
+        "max_credit_snapshot_age_seconds": 600,
+        "preview_ttl_seconds": 120,
+        "command_ttl_seconds": 60,
+        "credit_query_cooldown_seconds": 180,
+        "max_auto_authorization_minutes": 720,
+        "max_auto_session_notional": 1000000.0,
+        "max_auto_orders": 500,
+        "min_auto_order_interval_seconds": 1,
+        "max_auto_concurrent_orders": 10,
+        "max_auto_symbol_position_notional": 250000.0,
+        "max_auto_account_drawdown": 50000.0,
+        "auto_heartbeat_max_age_seconds": 15,
+        "auto_max_queue_depth": 20
+      }
+    }
+  ]
+}

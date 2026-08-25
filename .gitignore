@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+build/
+dist/
+
+# Local IDE / agent metadata
+.idea/
+.vscode/
+.codex/
+
+# WorkBuddy / MCP local configuration
+workbuddy.mcp.json
+mcp.json
+
+# WorkBuddy-QMT runtime and generated bundles
+runtime/
+data/
+state/
+queue/
+qmt_ready/
+execution_journal/
+p0_validation/
+
+# Databases, journals and logs
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.wal
+*.shm
+*.log
+logs/
+dead_letter/
+
+# Credentials and machine-bound authorization
+message_keys.json
+worker.token
+*.pem
+*.key
+*.pfx
+*.p12
+qmt_adapter.json
+qmt_profile.json
+*.signed.json
+
+# Diagnostics and local review artifacts
+diagnostic*/
+github-publish-preview/

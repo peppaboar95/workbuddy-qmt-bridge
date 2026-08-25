@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "qmt-bridge": {
+      "command": "C:\\Users\\必须修改用户名\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "args": [
+        "-m",
+        "workbuddy_qmt.mcp_server",
+        "--config",
+        "C:\\Users\\必须修改用户名\\AppData\\Local\\WorkBuddyQMTBridge\\runtime\\config\\bridge.json",
+        "--endpoint",
+        "http://127.0.0.1:17642"
+      ],
+      "disabled": false
+    }
+  }
+}
