@@ -34,6 +34,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: Install build tools
+        run: python -m pip install --upgrade "setuptools>=77" wheel
       - name: Build release assets
         shell: pwsh
         run: .\tools\build_release.ps1
