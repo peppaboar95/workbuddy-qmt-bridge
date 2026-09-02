@@ -111,6 +111,8 @@ runtime、数据库、WAL/SHM、日志、队列、执行日志、签名 Profile�
 
 ## 文档
 
+- **在线 API 参考（GitHub Pages）**：https://peppaboar95.github.io/workbuddy-qmt-bridge/
+  - 单文件离线 HTML，零外部依赖；覆盖全部 29 个 MCP 工具、错误码、风控原因码与配置参考。可另存为 `.html` 本地打开。
 - 发布与安装：docs/README-RELEASE.zh-CN.md
 - P1 验证说明：docs/P1-VALIDATION.zh-CN.md
 - 配置示例：examples/README.md

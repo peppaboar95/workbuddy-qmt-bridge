@@ -1,0 +1,3354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkBuddy-QMT Bridge · API 参考文档 v0.3.0</title>
+<style>
+:root{
+  --bg:#ffffff;
+  --bg-soft:#f7f8fa;
+  --bg-side:#fbfbfd;
+  --border:#e3e6ec;
+  --border-soft:#eef0f4;
+  --text:#1c2230;
+  --text-mid:#4c5566;
+  --text-soft:#78818f;
+  --accent:#635bff;
+  --accent-soft:#f0effe;
+  --topbar-h:58px;
+  --sidebar-w:280px;
+  --radius:10px;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,"Courier New",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+  /* 语义色 */
+  --c-get:#0c7f5a;  --c-get-bg:#e5f6ef;
+  --c-post:#1f5fd0; --c-post-bg:#e7f0fd;
+  --c-put:#a15c07;  --c-put-bg:#fdf2e2;
+  --c-del:#c0392b;  --c-del-bg:#fdeceb;
+  --c-mcp:#6b32d6;  --c-mcp-bg:#f0e9fd;
+  --c-neutral:#4c5566; --c-neutral-bg:#eef0f4;
+  /* 代码卡（深色） */
+  --code-bg:#141720;
+  --code-bar:#1c202b;
+  --code-border:#282d3a;
+  --code-text:#d8dce6;
+  --code-key:#7fd1f7;
+  --code-str:#a5e0a0;
+  --code-num:#f5c98a;
+  --code-lit:#d3a0ff;
+  --code-punc:#7c8493;
+  --code-com:#6d7686;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:15px;line-height:1.72;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,h4{line-height:1.35;margin:0}
+code{font-family:var(--mono);font-size:.88em}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  position:sticky;top:0;z-index:60;height:var(--topbar-h);
+  display:flex;align-items:center;gap:14px;padding:0 20px;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15.5px;letter-spacing:-.2px}
+.brand .mark{
+  width:26px;height:26px;border-radius:7px;flex:none;
+  background:linear-gradient(135deg,#635bff,#8b7bff);
+  display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800;
+}
+.brand small{font-weight:500;color:var(--text-soft);font-size:12.5px}
+.ver{
+  font-family:var(--mono);font-size:11.5px;font-weight:600;
+  padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);
+}
+.topbar .spacer{flex:1}
+.searchbox{position:relative;flex:none}
+.searchbox input{
+  width:250px;height:34px;padding:0 12px 0 32px;border-radius:8px;
+  border:1px solid var(--border);background:var(--bg-soft);
+  font-family:var(--sans);font-size:13.5px;color:var(--text);outline:none;
+}
+.searchbox input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(99,91,255,.12)}
+.searchbox svg{position:absolute;left:10px;top:9px;opacity:.45}
+.menu-btn{
+  display:none;width:34px;height:34px;border-radius:8px;border:1px solid var(--border);
+  background:#fff;cursor:pointer;align-items:center;justify-content:center;
+}
+.menu-btn span{display:block;width:16px;height:1.6px;background:var(--text);position:relative}
+.menu-btn span::before,.menu-btn span::after{content:"";position:absolute;left:0;width:16px;height:1.6px;background:var(--text)}
+.menu-btn span::before{top:-5px}.menu-btn span::after{top:5px}
+
+/* ---------- 骨架 ---------- */
+.shell{display:flex;align-items:flex-start}
+.sidebar{
+  position:sticky;top:var(--topbar-h);flex:none;width:var(--sidebar-w);
+  height:calc(100vh - var(--topbar-h));overflow-y:auto;overscroll-behavior:contain;
+  background:var(--bg-side);border-right:1px solid var(--border);
+  padding:18px 10px 60px;
+}
+.sidebar::-webkit-scrollbar{width:8px}
+.sidebar::-webkit-scrollbar-thumb{background:#d7dbe3;border-radius:8px}
+.nav-group{margin-bottom:16px}
+.nav-group h4{
+  font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--text-soft);padding:6px 12px;margin-bottom:3px;
+}
+.nav-group ul{list-style:none;margin:0;padding:0}
+.nav-link{
+  display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:7px;
+  color:var(--text-mid);font-size:13.4px;text-decoration:none;position:relative;
+  border-left:2px solid transparent;
+}
+.nav-link:hover{background:#eef0f6;color:var(--text);text-decoration:none}
+.nav-link.active{background:var(--accent-soft);color:var(--accent);font-weight:600;border-left-color:var(--accent)}
+.nav-link .dot{width:5px;height:5px;border-radius:50%;flex:none;background:currentColor;opacity:.35}
+.nav-link.active .dot{opacity:1}
+.nav-link .nm{font-family:var(--mono);font-size:12.4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-empty{padding:10px 12px;color:var(--text-soft);font-size:13px;display:none}
+
+.content{flex:1;min-width:0;padding:38px 46px 120px;max-width:980px}
+.section{scroll-margin-top:calc(var(--topbar-h) + 22px);margin-bottom:56px}
+.section > h2{
+  font-size:26px;letter-spacing:-.4px;margin-bottom:10px;
+  padding-bottom:12px;border-bottom:1px solid var(--border);
+}
+.section > h3{font-size:19px;margin:34px 0 10px;letter-spacing:-.2px}
+.section > h4{font-size:15.5px;margin:24px 0 8px}
+.section p{margin:0 0 14px;color:var(--text-mid)}
+.lead{font-size:16.5px;color:var(--text-mid);line-height:1.78}
+.eyebrow{
+  font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:8px;display:block;
+}
+
+/* ---------- 徽标 ---------- */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.03em;
+  padding:3px 8px;border-radius:5px;vertical-align:middle;white-space:nowrap;
+}
+.b-get{color:var(--c-get);background:var(--c-get-bg)}
+.b-post{color:var(--c-post);background:var(--c-post-bg)}
+.b-put{color:var(--c-put);background:var(--c-put-bg)}
+.b-del{color:var(--c-del);background:var(--c-del-bg)}
+.b-mcp{color:var(--c-mcp);background:var(--c-mcp-bg)}
+.b-neutral{color:var(--c-neutral);background:var(--c-neutral-bg)}
+.b-outline{color:var(--text-mid);background:#fff;border:1px solid var(--border)}
+.tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--bg-soft);color:var(--text-mid);border:1px solid var(--border)}
+.tag.risk{background:var(--c-del-bg);color:var(--c-del);border-color:#f6cfcb}
+.tag.warn{background:var(--c-put-bg);color:var(--c-put);border-color:#f3ddb8}
+.tag.ok{background:var(--c-get-bg);color:var(--c-get);border-color:#bfe6d7}
+
+/* ---------- 表格 ---------- */
+.tablewrap{overflow-x:auto;margin:16px 0 18px;border:1px solid var(--border);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:13.6px;min-width:520px}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+thead th{background:var(--bg-soft);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-soft);font-weight:700;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+td code{font-size:12.4px;background:var(--bg-soft);padding:1.5px 5px;border-radius:4px;color:#3a4152;border:1px solid var(--border-soft)}
+td .req{color:var(--c-del);font-weight:700}
+td .opt{color:var(--text-soft)}
+.ty{font-family:var(--mono);font-size:12px;color:var(--text-soft);white-space:nowrap}
+
+/* ---------- 代码卡 ---------- */
+.codegrid{display:grid;gap:14px;margin:14px 0 8px}
+@media(min-width:1180px){.codegrid.cols-2{grid-template-columns:1fr 1fr}}
+.card{
+  background:var(--code-bg);border:1px solid var(--code-border);border-radius:var(--radius);
+  overflow:hidden;box-shadow:0 1px 2px rgba(16,20,30,.06);
+}
+.card-head{
+  display:flex;align-items:center;gap:8px;padding:7px 12px;
+  background:var(--code-bar);border-bottom:1px solid var(--code-border);
+}
+.card-head .lbl{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8b95a8}
+.card-head .fn{font-family:var(--mono);font-size:11.5px;color:#5f6878;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-head .spacer{flex:1}
+.copy{
+  font-family:var(--sans);font-size:11.5px;font-weight:600;color:#9aa4b6;
+  background:transparent;border:1px solid #2c323f;border-radius:5px;
+  padding:2px 8px;cursor:pointer;transition:.15s;
+}
+.copy:hover{color:#fff;border-color:#48505f;background:#232936}
+.copy.done{color:#7ee2b8;border-color:#2f5f4c}
+.card pre{
+  margin:0;padding:13px 15px;overflow-x:auto;
+  font-family:var(--mono);font-size:12.4px;line-height:1.68;color:var(--code-text);
+  tab-size:2;
+}
+.card pre::-webkit-scrollbar{height:8px}
+.card pre::-webkit-scrollbar-thumb{background:#2c323f;border-radius:8px}
+.tk-key{color:var(--code-key)}
+.tk-str{color:var(--code-str)}
+.tk-num{color:var(--code-num)}
+.tk-lit{color:var(--code-lit)}
+.tk-com{color:var(--code-com);font-style:italic}
+.tk-cmd{color:#8fd0ff}
+
+/* 行内代码（浅色） */
+.inl{font-family:var(--mono);font-size:12.6px;background:var(--bg-soft);border:1px solid var(--border-soft);padding:1.5px 6px;border-radius:5px;color:#39404f}
+
+/* ---------- 提示块 ---------- */
+.note{
+  border:1px solid var(--border);border-left:3px solid var(--accent);
+  background:var(--bg-soft);border-radius:0 var(--radius) var(--radius) 0;
+  padding:12px 16px;margin:16px 0;font-size:14px;color:var(--text-mid);
+}
+.note strong{color:var(--text)}
+.note.danger{border-left-color:var(--c-del);background:#fef7f6}
+.note.warn{border-left-color:var(--c-put);background:#fffaf1}
+.note.ok{border-left-color:var(--c-get);background:#f4fcf8}
+.note p:last-child{margin-bottom:0}
+
+/* ---------- 端点块 ---------- */
+.ep{border-top:1px solid var(--border-soft);padding-top:26px;margin-top:34px}
+.ep:first-of-type{border-top:none;padding-top:0;margin-top:8px}
+.ep-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.ep-head h3{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:-.2px;word-break:break-all}
+.ep-desc{color:var(--text-mid);margin-bottom:0}
+.ep-meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 0}
+
+/* ---------- 其他组件 ---------- */
+.grid2{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin:18px 0}
+.panel{border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;background:#fff}
+.panel h4{margin:0 0 6px;font-size:14.5px}
+.panel p{margin:0;font-size:13.6px;color:var(--text-soft);line-height:1.65}
+.panel .k{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);display:block;margin-bottom:4px}
+ul.plain{margin:0 0 14px;padding-left:20px;color:var(--text-mid)}
+ul.plain li{margin-bottom:6px}
+ol.plain{margin:0 0 14px;padding-left:20px;color:var(--text-mid)}
+ol.plain li{margin-bottom:8px}
+.flow{
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-soft);
+  padding:18px;margin:18px 0;overflow-x:auto;
+}
+.flow pre{margin:0;font-family:var(--mono);font-size:12.4px;line-height:1.85;color:#39404f;white-space:pre}
+.diag{width:100%;height:auto;display:block;margin:18px 0}
+.to-top{
+  position:fixed;right:22px;bottom:22px;width:40px;height:40px;border-radius:50%;
+  border:1px solid var(--border);background:#fff;cursor:pointer;z-index:50;
+  display:grid;place-items:center;box-shadow:0 3px 12px rgba(20,25,40,.1);
+  opacity:0;pointer-events:none;transition:.2s;color:var(--text-mid);
+}
+.to-top.show{opacity:1;pointer-events:auto}
+.backdrop{display:none;position:fixed;inset:0;top:var(--topbar-h);background:rgba(20,24,34,.35);z-index:45}
+.backdrop.show{display:block}
+.foot{margin-top:64px;padding-top:22px;border-top:1px solid var(--border);color:var(--text-soft);font-size:13px}
+.foot-meta{
+  display:grid;gap:12px 24px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  margin:0 0 18px;padding:14px 16px;background:var(--bg-soft);
+  border:1px solid var(--border-soft);border-radius:var(--radius);
+}
+.foot-meta div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.foot-meta dt{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-soft)}
+.foot-meta dd{margin:0;font-family:var(--mono);font-size:12.6px;color:var(--text-mid);word-break:break-word}
+.foot h4{font-size:13.5px;color:var(--text);margin:20px 0 7px}
+.foot p{margin:0 0 10px;line-height:1.72}
+.foot .disclaimer{
+  border-left:3px solid var(--c-del);background:#fef7f6;
+  padding:13px 16px;border-radius:0 var(--radius) var(--radius) 0;
+}
+.foot .disclaimer p{margin:0 0 7px;color:var(--text-mid)}
+.foot .disclaimer p:last-child{margin:0}
+
+@media(max-width:1100px){
+  .content{padding:32px 30px 100px}
+  .searchbox input{width:170px}
+}
+@media(max-width:900px){
+  .menu-btn{display:flex}
+  .sidebar{
+    position:fixed;top:var(--topbar-h);left:0;z-index:50;height:calc(100vh - var(--topbar-h));
+    transform:translateX(-100%);transition:transform .24s ease;box-shadow:4px 0 24px rgba(20,25,40,.12);
+  }
+  .sidebar.open{transform:translateX(0)}
+  .content{padding:26px 20px 100px;max-width:100%}
+  .searchbox input{width:130px}
+  .section > h2{font-size:22px}
+  .brand small{display:none}
+}
+@media(max-width:560px){
+  .searchbox{display:none}
+  .content{padding:22px 15px 90px}
+  .card pre{font-size:11.6px}
+  .section > h2{font-size:20px}
+}
+@media print{
+  .topbar,.sidebar,.to-top{display:none}
+  .content{max-width:100%;padding:0}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="menu-btn" id="menuBtn" aria-label="打开导航"><span></span></button>
+  <div class="brand">
+    <span class="mark">Q</span>
+    <span>WorkBuddy-QMT Bridge<small>&nbsp;· API 参考</small></span>
+  </div>
+  <span class="ver">v0.3.0</span>
+  <div class="spacer"></div>
+  <div class="searchbox">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <input id="navSearch" type="search" placeholder="搜索端点…" autocomplete="off">
+  </div>
+</header>
+
+<div class="shell">
+
+<aside class="sidebar" id="sidebar">
+  <nav id="nav">
+    <div class="nav-group">
+      <h4>入门</h4>
+      <ul>
+        <li><a class="nav-link" href="#overview"><span class="dot"></span><span class="nm">概览</span></a></li>
+        <li><a class="nav-link" href="#architecture"><span class="dot"></span><span class="nm">架构与数据流</span></a></li>
+        <li><a class="nav-link" href="#transport"><span class="dot"></span><span class="nm">传输层与鉴权</span></a></li>
+        <li><a class="nav-link" href="#modes"><span class="dot"></span><span class="nm">运行模式</span></a></li>
+        <li><a class="nav-link" href="#envelope"><span class="dot"></span><span class="nm">响应信封</span></a></li>
+        <li><a class="nav-link" href="#errors"><span class="dot"></span><span class="nm">错误码</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>系统与健康</h4>
+      <ul>
+        <li><a class="nav-link" href="#qmt_health"><span class="dot"></span><span class="nm">qmt_health</span></a></li>
+        <li><a class="nav-link" href="#list_account_aliases"><span class="dot"></span><span class="nm">list_account_aliases</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>账户与风控</h4>
+      <ul>
+        <li><a class="nav-link" href="#get_account_snapshot"><span class="dot"></span><span class="nm">get_account_snapshot</span></a></li>
+        <li><a class="nav-link" href="#get_risk_limits"><span class="dot"></span><span class="nm">get_risk_limits</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>行情 · 持仓 · 委托</h4>
+      <ul>
+        <li><a class="nav-link" href="#get_quote_snapshot"><span class="dot"></span><span class="nm">get_quote_snapshot</span></a></li>
+        <li><a class="nav-link" href="#get_positions"><span class="dot"></span><span class="nm">get_positions</span></a></li>
+        <li><a class="nav-link" href="#get_orders"><span class="dot"></span><span class="nm">get_orders</span></a></li>
+        <li><a class="nav-link" href="#get_trades"><span class="dot"></span><span class="nm">get_trades</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>信用账户</h4>
+      <ul>
+        <li><a class="nav-link" href="#get_credit_account_snapshot"><span class="dot"></span><span class="nm">get_credit_account_snapshot</span></a></li>
+        <li><a class="nav-link" href="#get_credit_debt_contracts"><span class="dot"></span><span class="nm">get_credit_debt_contracts</span></a></li>
+        <li><a class="nav-link" href="#get_credit_instrument_eligibility"><span class="dot"></span><span class="nm">get_credit_instrument_eligibility</span></a></li>
+        <li><a class="nav-link" href="#get_credit_capacity"><span class="dot"></span><span class="nm">get_credit_capacity</span></a></li>
+        <li><a class="nav-link" href="#request_credit_precheck"><span class="dot"></span><span class="nm">request_credit_precheck</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>交易生命周期</h4>
+      <ul>
+        <li><a class="nav-link" href="#preview_trade"><span class="dot"></span><span class="nm">preview_trade</span></a></li>
+        <li><a class="nav-link" href="#submit_trade_intent"><span class="dot"></span><span class="nm">submit_trade_intent</span></a></li>
+        <li><a class="nav-link" href="#cancel_order"><span class="dot"></span><span class="nm">cancel_order</span></a></li>
+        <li><a class="nav-link" href="#get_trade_intent"><span class="dot"></span><span class="nm">get_trade_intent</span></a></li>
+        <li><a class="nav-link" href="#list_trade_intents"><span class="dot"></span><span class="nm">list_trade_intents</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>人工实盘授权</h4>
+      <ul>
+        <li><a class="nav-link" href="#authorize_manual_trade"><span class="dot"></span><span class="nm">authorize_manual_trade</span></a></li>
+        <li><a class="nav-link" href="#authorize_manual_session"><span class="dot"></span><span class="nm">authorize_manual_session</span></a></li>
+        <li><a class="nav-link" href="#get_manual_authorization_status"><span class="dot"></span><span class="nm">get_manual_authorization_status</span></a></li>
+        <li><a class="nav-link" href="#revoke_manual_session"><span class="dot"></span><span class="nm">revoke_manual_session</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>有限自动交易 P1</h4>
+      <ul>
+        <li><a class="nav-link" href="#check_limited_auto_readiness"><span class="dot"></span><span class="nm">check_limited_auto_readiness</span></a></li>
+        <li><a class="nav-link" href="#authorize_limited_auto"><span class="dot"></span><span class="nm">authorize_limited_auto</span></a></li>
+        <li><a class="nav-link" href="#get_limited_auto_status"><span class="dot"></span><span class="nm">get_limited_auto_status</span></a></li>
+        <li><a class="nav-link" href="#resume_limited_auto"><span class="dot"></span><span class="nm">resume_limited_auto</span></a></li>
+        <li><a class="nav-link" href="#revoke_limited_auto"><span class="dot"></span><span class="nm">revoke_limited_auto</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>同步与熔断</h4>
+      <ul>
+        <li><a class="nav-link" href="#request_sync"><span class="dot"></span><span class="nm">request_sync</span></a></li>
+        <li><a class="nav-link" href="#halt_trading"><span class="dot"></span><span class="nm">halt_trading</span></a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h4>附录</h4>
+      <ul>
+        <li><a class="nav-link" href="#appendix-risk"><span class="dot"></span><span class="nm">风控原因码</span></a></li>
+        <li><a class="nav-link" href="#appendix-states"><span class="dot"></span><span class="nm">状态机</span></a></li>
+        <li><a class="nav-link" href="#appendix-config"><span class="dot"></span><span class="nm">配置参考</span></a></li>
+        <li><a class="nav-link" href="#appendix-console"><span class="dot"></span><span class="nm">本机控制台</span></a></li>
+        <li><a class="nav-link" href="#appendix-faq"><span class="dot"></span><span class="nm">排障速查</span></a></li>
+      </ul>
+    </div>
+  </nav>
+  <div class="nav-empty" id="navEmpty">没有匹配的端点</div>
+</aside>
+
+<div class="backdrop" id="backdrop"></div>
+
+<main class="content">
+
+<!-- ============ 概览 ============ -->
+<section class="section" id="overview">
+  <span class="eyebrow">入门</span>
+  <h2>概览</h2>
+  <p class="lead">WorkBuddy-QMT Bridge 是一套运行在本机的交易桥接层。它把 Tencent WorkBuddy 的自然语言请求，翻译成结构化的大 QMT 查询与下单动作，并在整条链路上强制实施「失败关闭」（fail-closed）风控。</p>
+  <p>本桥接服务<b>不托管任何资金接口</b>，也不连接任何远端服务。Worker 只监听本机回环地址，QMT Adapter 以策略脚本形式运行在大 QMT 客户端内部，两者通过本机签名文件队列通信。</p>
+
+  <div class="grid2">
+    <div class="panel"><span class="k">29</span><h4>MCP 工具</h4><p>覆盖健康检查、账户、行情、持仓、委托、成交、信用、预览、提交、授权与熔断。</p></div>
+    <div class="panel"><span class="k">4</span><h4>运行模式</h4><p><code class="inl">OBSERVE_ONLY</code> / <code class="inl">SIM_SIGNAL</code> / <code class="inl">MANUAL_LIVE</code> / <code class="inl">LIMITED_AUTO</code>。</p></div>
+    <div class="panel"><span class="k">2</span><h4>传输通道</h4><p>MCP stdio（WorkBuddy 侧）与本机 HTTP <code class="inl">POST /rpc</code>（Worker 侧）。</p></div>
+    <div class="panel"><span class="k">15</span><h4>硬风控维度</h4><p>资金、可卖量、单笔/单日额度、行情时效、价格笼子、活动委托、信用指标等。</p></div>
+  </div>
+
+  <h3>核心设计原则</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>原则</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td><b>失败关闭</b></td><td>任何未知参数、类型错误、越界数值、过期快照、签名不符或模式漂移，一律按拒绝处理，绝不降级放行。</td></tr>
+      <tr><td><b>先预览后提交</b></td><td>交易必须经过 <code>preview_trade</code> 生成可审计的预览；<code>submit_trade_intent</code> 只接受未过期预览，并重算全部硬风控。</td></tr>
+      <tr><td><b>决策指纹比对</b></td><td>提交时比对风险决策指纹（动作、价格、数量、可用资金、持仓、价格保护、活动委托、日内额度、信用字段）。任一实质变化即要求重新预览。</td></tr>
+      <tr><td><b>一意图一委托</b></td><td>不自动拆单、不追单、不尝试第二价格。<code>SUBMIT_UNKNOWN</code> 时不会自动重发。</td></tr>
+      <tr><td><b>模式不可远程切换</b></td><td>MCP 无法切换 Worker/Adapter 运行模式，也无法解除熔断——这两项只由本机控制台完成。</td></tr>
+      <tr><td><b>双端独立复核</b></td><td>Worker 签发的命令，Adapter 在调用 <code>passorder</code> 前会重新读取行情并独立复核账户、持仓、价格、额度与授权。</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note ok">
+    <p><strong>零外部依赖。</strong>本桥接不上传账户号、密钥、令牌或数据库。Profile 签名必须在目标电脑本机完成；从其他电脑复制的签名 Profile 一律无效。</p>
+  </div>
+</section>
+
+<!-- ============ 架构 ============ -->
+<section class="section" id="architecture">
+  <span class="eyebrow">入门</span>
+  <h2>架构与数据流</h2>
+  <p>系统由三个进程组成：<b>MCP 前端</b>（stdio，由 WorkBuddy 拉起）、<b>Worker</b>（本机 HTTP + SQLite + 文件队列）、<b>QMT Adapter</b>（大 QMT 内运行的策略脚本）。</p>
+
+  <svg class="diag" viewBox="0 0 900 260" role="img" aria-label="WorkBuddy-QMT Bridge 架构图">
+    <defs>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 z" fill="#8a93a5"/></marker>
+    </defs>
+    <rect x="8" y="0" width="884" height="260" rx="12" fill="#fbfbfd" stroke="#e3e6ec"/>
+
+    <rect x="26" y="46" width="150" height="62" rx="9" fill="#f0effe" stroke="#c9c4ff"/>
+    <text x="101" y="72" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#4b40d6">WorkBuddy</text>
+    <text x="101" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" fill="#6b6a9b">自然语言 / Agent</text>
+
+    <rect x="212" y="46" width="150" height="62" rx="9" fill="#e7f0fd" stroke="#bcd4f8"/>
+    <text x="287" y="72" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#1f5fd0">MCP 前端</text>
+    <text x="287" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" fill="#4d79c4">stdio · tools/call</text>
+
+    <rect x="398" y="46" width="150" height="62" rx="9" fill="#e5f6ef" stroke="#b6e3ce"/>
+    <text x="473" y="72" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0c7f5a">Worker</text>
+    <text x="473" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" fill="#3d8a6d">127.0.0.1:17642</text>
+
+    <rect x="584" y="46" width="150" height="62" rx="9" fill="#fdf2e2" stroke="#f0d9ae"/>
+    <text x="659" y="72" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#a15c07">QMT Adapter</text>
+    <text x="659" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" fill="#96733f">大 QMT 策略实例</text>
+
+    <rect x="770" y="46" width="106" height="62" rx="9" fill="#fdeceb" stroke="#f3c6c1"/>
+    <text x="823" y="72" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#c0392b">大 QMT</text>
+    <text x="823" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10.5" fill="#a56156">柜台 / 行情</text>
+
+    <line x1="176" y1="77" x2="206" y2="77" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+    <line x1="362" y1="77" x2="392" y2="77" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+    <line x1="548" y1="77" x2="578" y2="77" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+    <line x1="734" y1="77" x2="764" y2="77" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+
+    <text x="191" y="70" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#8a93a5">stdio</text>
+    <text x="377" y="70" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#8a93a5">POST</text>
+    <text x="563" y="70" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#8a93a5">queue</text>
+    <text x="749" y="70" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#8a93a5">API</text>
+
+    <rect x="398" y="140" width="150" height="52" rx="9" fill="#ffffff" stroke="#e3e6ec"/>
+    <text x="473" y="161" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#4c5566">SQLite</text>
+    <text x="473" y="178" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#78818f">state · audit · intents</text>
+    <line x1="473" y1="140" x2="473" y2="108" stroke="#c8cfda" stroke-width="1.4" stroke-dasharray="3 3"/>
+
+    <rect x="584" y="140" width="150" height="52" rx="9" fill="#ffffff" stroke="#e3e6ec"/>
+    <text x="659" y="161" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#4c5566">签名文件队列</text>
+    <text x="659" y="178" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#78818f">HMAC · TTL · 死信</text>
+    <line x1="659" y1="140" x2="659" y2="108" stroke="#c8cfda" stroke-width="1.4" stroke-dasharray="3 3"/>
+
+    <text x="26" y="218" font-family="system-ui,sans-serif" font-size="11.5" font-weight="700" fill="#4c5566">回程：Adapter 回传签名事件 → Worker 入库 → WorkBuddy 通过查询工具取得结构化结果</text>
+    <text x="26" y="238" font-family="system-ui,sans-serif" font-size="11" fill="#78818f">每一条消息均携带 HMAC-SHA256 签名与 TTL；超时、重放、时钟偏移超过 5 秒即被丢弃。</text>
+  </svg>
+
+  <h3>交易链路十二步</h3>
+  <div class="flow"><pre> 1  WorkBuddy 请求 QMT 同步账户、持仓和目标标的行情（request_sync）
+ 2  Adapter 返回最新价、盘口、涨跌停、最小价位、动态价格笼子
+ 3  preview_trade 把意图转成结构化动作、数量与限价（不产生可执行命令）
+ 4  Worker 校验：零股 / 最小数量 / 资金 / 可卖量 / 单笔单日限额 /
+    行情年龄 / 价格笼子 / 活动委托冲突 / 信用指标
+ 5  MANUAL_LIVE 逐笔授权（authorize_manual_trade）
+    或 1–60 分钟账户级不限笔数授权（authorize_manual_session）
+ 6  LIMITED_AUTO 先过 readiness，再创建绑定当日时段/标的/动作/策略版本/额度的签名许可
+ 7  submit_trade_intent 再次比对风险决策指纹与授权状态，并在同一事务内原子占用自动额度
+ 8  通过后 Worker 把带 HMAC 签名和 TTL 的唯一命令写入目标账户队列
+ 9  Adapter 重新检查账户、数量、资金、实时行情、涨跌停、价格笼子、本地授权、P1 策略哈希
+10  Adapter 校验签名 Profile 与 QMT 构建、柜台构建、账户、策略、Adapter 实例完全一致
+11  Adapter 先写入 PRE_SUBMIT 防重复日志，再调用一次 passorder
+12  委托 / 成交 / 错误回调写回 Worker，WorkBuddy 用查询工具取最终状态</pre></div>
+
+  <div class="note warn">
+    <p><strong>模式名称不代表柜台。</strong><code class="inl">SIM_SIGNAL</code>、<code class="inl">MANUAL_LIVE</code>、<code class="inl">LIMITED_AUTO</code> 都无法识别当前连接的是模拟柜台还是真实资金柜台，操作者必须在 QMT 中自行核对账户与柜台。</p>
+  </div>
+</section>
+
+<!-- ============ 传输层与鉴权 ============ -->
+<section class="section" id="transport">
+  <span class="eyebrow">入门</span>
+  <h2>传输层与鉴权</h2>
+  <p>桥接暴露两个通道：<b>MCP stdio</b> 供 WorkBuddy 调用，<b>本机 HTTP <code class="inl">/rpc</code></b> 供 Worker 内部与手工排障使用。两者最终汇聚到同一套 <code class="inl">BridgeCore</code> 方法表。</p>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>POST /rpc</h3>
+      <span class="badge b-post">POST</span>
+      <span class="badge b-outline">127.0.0.1:17642</span>
+    </div>
+    <p class="ep-desc">Worker 的唯一 HTTP 入口。使用本机令牌做 Bearer 鉴权，仅接受 JSON-RPC 风格的单条调用。</p>
+
+    <h4>请求头</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>头</th><th>值</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>Content-Type</code></td><td><span class="ty">application/json</span></td><td>固定值。</td></tr>
+        <tr><td><code>Authorization</code></td><td><span class="ty">Bearer &lt;worker_token&gt;</span></td><td>读取自 <code>bridge.json</code> 的 <code>worker_token_file</code>；不一致直接返回 <code>UNAUTHORIZED</code>。</td></tr>
+        <tr><td><code>Content-Length</code></td><td><span class="ty">1 … max_message_bytes</span></td><td>默认上限 65536 字节（可配置 1024–16777216）。越界返回 <code>INVALID_REQUEST</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>请求体</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>method</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>方法名，必须是 29 个受支持方法之一，否则 <code>METHOD_NOT_FOUND</code>。</td></tr>
+        <tr><td><code>params</code></td><td><span class="ty">object</span></td><td><span class="opt">可选</span></td><td>方法入参，键必须与 Python 函数签名一一对应，缺参/多参抛 <code>INVALID_REQUEST</code>。</td></tr>
+        <tr><td><code>request_id</code></td><td><span class="ty">string</span></td><td><span class="opt">可选</span></td><td>缺省时 Worker 自动生成；原样回显，并写入 <code>mcp_requests</code> 审计表。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">POST http://127.0.0.1:17642/rpc</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_quote_snapshot",
+  "params": {
+    "account_alias": "main_stock",
+    "symbols": ["600000.SH", "000001.SZ"]
+  },
+  "request_id": "req_9f2c1ab4"
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">200 OK · application/json</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "ok": true,
+  "request_id": "req_9f2c1ab4",
+  "as_of": "2026-09-01T02:11:03.412Z",
+  "data": {
+    "quotes": [
+      {
+        "snapshot_id": "qsnap_7a1f",
+        "captured_at": "2026-09-01T02:11:02.880Z",
+        "age_seconds": 1.2,
+        "quote": {
+          "symbol": "600000.SH",
+          "last_price": 11.42,
+          "tick_size": 0.01,
+          "upper_limit": 12.56,
+          "lower_limit": 10.28,
+          "tick_at": "2026-09-01T02:11:02.500Z"
+        }
+      }
+    ],
+    "missing_symbols": []
+  },
+  "warnings": [],
+  "error": null
+}</pre>
+      </div>
+    </div>
+
+    <h4>HTTP 状态码</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>状态</th><th>触发条件</th><th>响应体</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge b-get">200</span></td><td>请求被正常处理，<b>包括业务错误</b>。所有 <code>BridgeError</code> 都以 <code>ok:false</code> + 200 返回。</td><td>完整信封</td></tr>
+        <tr><td><span class="badge b-post">401</span></td><td>Bearer 令牌不匹配。</td><td><code>{"ok":false,"error":{"code":"UNAUTHORIZED"}}</code></td></tr>
+        <tr><td><span class="badge b-post">404</span></td><td>路径不是 <code>/rpc</code>。</td><td><code>{"ok":false}</code></td></tr>
+        <tr><td><span class="badge b-del">500</span></td><td>Worker 内部未捕获异常。</td><td><code>error.code = INTERNAL_ERROR</code></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>MCP · tools/call</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-neutral">stdio</span>
+    </div>
+    <p class="ep-desc">WorkBuddy 以 stdio 拉起 <code class="inl">workbuddy_qmt.mcp_server</code>。它把 <code class="inl">tools/call</code> 转发为上面的 <code class="inl">POST /rpc</code>，并把响应信封序列化为一段 text content 返回。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">jsonrpc 2.0 → tools/call</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "method": "tools/call",
+  "params": {
+    "name": "get_positions",
+    "arguments": {
+      "account_alias": "main_stock",
+      "include_zero": false
+    }
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">content[0].text = 响应信封</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"ok\":true,\"request_id\":\"req_...\",\"as_of\":\"...\",\"data\":{...},\"warnings\":[],\"error\":null}"
+      }
+    ],
+    "isError": false
+  }
+}</pre>
+      </div>
+    </div>
+
+    <h4>WorkBuddy MCP 配置</h4>
+    <p>位于 <code class="inl">%USERPROFILE%\.workbuddy\mcp.json</code>，由安装向导合并生成。<b>不要</b>把 worker token 写进这里——它由 Worker 从 <code class="inl">worker_token_file</code> 读取。</p>
+    <div class="card">
+      <div class="card-head"><span class="lbl">JSON</span><span class="fn">mcpServers.qmt-bridge</span><span class="spacer"></span><button class="copy">复制</button></div>
+      <pre data-lang="json">{
+  "mcpServers": {
+    "qmt-bridge": {
+      "command": "C:\\Users\\&lt;用户名&gt;\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "args": [
+        "-m",
+        "workbuddy_qmt.mcp_server",
+        "--config",
+        "C:\\Users\\&lt;用户名&gt;\\AppData\\Local\\WorkBuddyQMTBridge\\runtime\\config\\bridge.json",
+        "--endpoint",
+        "http://127.0.0.1:17642"
+      ],
+      "disabled": false
+    }
+  }
+}</pre>
+    </div>
+
+    <div class="note danger">
+      <p><strong>Worker 不可达时不会抛异常。</strong>MCP 前端网络失败会返回 <code class="inl">ok:false</code> 且 <code class="inl">error.code = BRIDGE_UNAVAILABLE</code>。调用方必须先检查 <code class="inl">ok</code>，而不是只看有没有异常。</p>
+    </div>
+  </div>
+
+  <h3>工具注解（annotations）</h3>
+  <p>每个 MCP 工具都带注解，WorkBuddy 可据此决定是否要求人工确认。本文档用徽标表达同样的语义：</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>徽标</th><th>注解</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge b-get">READ</span></td><td><code>readOnlyHint=true</code> / <code>destructiveHint=false</code></td><td>只读查询，不产生任何副作用。</td></tr>
+      <tr><td><span class="badge b-put">WRITE</span></td><td><code>readOnlyHint=false</code> / <code>destructiveHint=false</code></td><td>会写队列或改本机状态，但不直接触发真实报单。</td></tr>
+      <tr><td><span class="badge b-del">RISK</span></td><td><code>destructiveHint=true</code></td><td>可能为真实 QMT 报单打开授权条件。调用前必须向用户展示完整范围并取得明确确认。</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ 运行模式 ============ -->
+<section class="section" id="modes">
+  <span class="eyebrow">入门</span>
+  <h2>运行模式</h2>
+  <p>全项目只有四种运行模式。<b>Worker、MCP 请求中的 <code class="inl">execution_mode</code>、以及 QMT Adapter 的 <code class="inl">qmt_mode</code> 必须完全一致</b>；任一不一致即失败关闭。熔断是独立安全状态，不是第五种模式。</p>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>模式</th><th>含义</th><th>可能调用 passorder</th><th>额外前置条件</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge b-get">OBSERVE_ONLY</span></td>
+        <td>查询、预览、空跑 ACK 闭环。默认且最安全的模式。</td>
+        <td>— 否</td>
+        <td>无。首次安装后固定为此模式。</td>
+      </tr>
+      <tr>
+        <td><span class="badge b-post">SIM_SIGNAL</span></td>
+        <td>仅用于已验收的<b>模拟</b>账户 / 模拟柜台。</td>
+        <td>是</td>
+        <td>已验证并本机签名的 Profile；目标柜台 P0 闭环。</td>
+      </tr>
+      <tr>
+        <td><span class="badge b-put">MANUAL_LIVE</span></td>
+        <td>人工实盘。支持逐笔审批或限时不限笔数授权，均可由高风险 MCP 工具完成。</td>
+        <td>是</td>
+        <td>已验证 Profile；Worker 模式必须先在本机切换；再取得逐笔 <code>approval_context</code> 或账户级时间授权。</td>
+      </tr>
+      <tr>
+        <td><span class="badge b-del">LIMITED_AUTO</span></td>
+        <td>P1 有限自动交易。授权后可在绑定范围内连续下单。</td>
+        <td>是</td>
+        <td>Profile + 模式一致 + 健康/对账检查通过 + <code>authorize_limited_auto</code> 创建的签名策略许可；健康异常时失败关闭。</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <div class="note warn">
+    <p><strong>不要在请求处理中热切换模式。</strong>正确顺序：停止发起新请求 → Worker 控制台 <code class="inl">Ctrl+C</code> → 停止所有 QMT 策略实例 → 修改每个账户 <code class="inl">qmt_adapter.json</code> 的 <code class="inl">qmt_mode</code> → 重启策略 → 启动 Worker 并选择同一模式 → <code class="inl">qmt_health</code> 复核。</p>
+  </div>
+
+  <p><code class="inl">bridge.json</code> 中的 <code class="inl">default_mode</code> <b>只在数据库首次创建时</b>设置初始模式。修改它不会切换已有环境的模式——当前模式保存在本机状态库，由启动菜单或本机控制台改写。</p>
+
+  <h3>切换非观察模式</h3>
+  <div class="card">
+    <div class="card-head"><span class="lbl">PowerShell</span><span class="fn">workbuddy_qmt.console set-mode</span><span class="spacer"></span><button class="copy">复制</button></div>
+    <pre data-lang="powershell"># 切回观察模式，不需要额外确认
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" set-mode OBSERVE_ONLY
+
+# 切换到已验收的模拟柜台；模式名和确认文字必须完全一致
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" set-mode SIM_SIGNAL --confirm SIM_SIGNAL
+
+# 切换到人工实盘模式
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" set-mode MANUAL_LIVE --confirm MANUAL_LIVE
+
+# 切换到 P1 有限自动模式；这里只切模式，不会创建策略许可
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" set-mode LIMITED_AUTO --confirm LIMITED_AUTO</pre>
+  </div>
+  <p class="lead" style="font-size:14.5px">控制台命令只改 Worker 本机状态，不会自动修改 <code class="inl">qmt_adapter.json</code>，也不会重启 QMT 策略——这两步必须手工完成。</p>
+</section>
+
+<!-- ============ 响应信封 ============ -->
+<section class="section" id="envelope">
+  <span class="eyebrow">入门</span>
+  <h2>响应信封</h2>
+  <p>所有 29 个方法返回<b>完全相同</b>的外层结构。业务数据一律装在 <code class="inl">data</code> 字段里。</p>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>ok</code></td><td><span class="ty">boolean</span></td><td>成功为 <code>true</code>。这是唯一的成功判据——<b>不要只看 HTTP 状态码</b>。</td></tr>
+      <tr><td><code>request_id</code></td><td><span class="ty">string</span></td><td>回显请求 ID，或 Worker 自动生成。可用于审计表检索。</td></tr>
+      <tr><td><code>as_of</code></td><td><span class="ty">string (ISO 8601)</span></td><td>Worker 处理完成时刻（UTC，毫秒精度）。</td></tr>
+      <tr><td><code>data</code></td><td><span class="ty">object | array | null</span></td><td>方法返回值。失败时为 <code>null</code>。</td></tr>
+      <tr><td><code>warnings</code></td><td><span class="ty">array</span></td><td>非致命提示。当前版本恒为空数组，保留字段以兼容未来扩展。</td></tr>
+      <tr><td><code>error</code></td><td><span class="ty">object | null</span></td><td>失败时含 <code>code</code> / <code>message</code> / <code>details</code>。</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="codegrid cols-2">
+    <div class="card">
+      <div class="card-head"><span class="lbl">成功</span><span class="fn">ok = true</span><span class="spacer"></span><button class="copy">复制</button></div>
+      <pre data-lang="json">{
+  "ok": true,
+  "request_id": "req_4b02",
+  "as_of": "2026-09-01T02:12:44.107Z",
+  "data": { "...": "方法专属结构" },
+  "warnings": [],
+  "error": null
+}</pre>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="lbl">失败</span><span class="fn">ok = false · HTTP 仍为 200</span><span class="spacer"></span><button class="copy">复制</button></div>
+      <pre data-lang="json">{
+  "ok": false,
+  "request_id": "req_4b03",
+  "as_of": "2026-09-01T02:12:45.330Z",
+  "data": null,
+  "warnings": [],
+  "error": {
+    "code": "RISK_REJECTED",
+    "message": "trade failed hard risk checks",
+    "details": {
+      "reasons": ["INSUFFICIENT_AVAILABLE_CASH", "MAX_DAILY_NOTIONAL_EXCEEDED"]
+    }
+  }
+}</pre>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><strong>快照内容是透明的。</strong>查询类方法返回的 <code class="inl">snapshot</code> 已经剥离传输与版本元数据（<code class="inl">type</code>、<code class="inl">snapshot_id</code>、<code class="inl">seq</code>、<code class="inl">captured_at</code>、<code class="inl">received_at</code>、<code class="inl">occurred_at</code>、<code class="inl">event_id</code>、<code class="inl">account_alias</code>、<code class="inl">account_type</code>），只保留业务字段。时间与 ID 由外层单独给出。</p>
+  </div>
+</section>
+
+<!-- ============ 错误码 ============ -->
+<section class="section" id="errors">
+  <span class="eyebrow">入门</span>
+  <h2>错误码</h2>
+  <p>错误码是稳定的 API 契约。同一 <code class="inl">code</code> 在不同版本间含义不变，可放心用于分支处理。</p>
+
+  <h3>传输层</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>错误码</th><th>触发</th><th>处理建议</th></tr></thead>
+    <tbody>
+      <tr><td><code>BRIDGE_UNAVAILABLE</code></td><td>MCP 前端连不上 Worker。</td><td>检查 Worker 控制台是否在运行、端口是否被占用。</td></tr>
+      <tr><td><code>UNAUTHORIZED</code></td><td>Bearer 令牌不匹配（HTTP 401）。</td><td>确认 MCP 启动参数与 Worker 使用同一 runtime。</td></tr>
+      <tr><td><code>METHOD_NOT_FOUND</code></td><td>方法名不在 29 个支持列表中。</td><td>核对方法名拼写。</td></tr>
+      <tr><td><code>INVALID_REQUEST</code></td><td>参数缺失/多余、类型错误、消息体超限或信封字段非法。</td><td>按本文档的参数表逐项核对；注意 <code>additionalProperties:false</code>。</td></tr>
+      <tr><td><code>INTERNAL_ERROR</code></td><td>Worker 未捕获异常（HTTP 500）。</td><td>查看 <code>&lt;runtime&gt;\data\logs\worker-YYYY-MM-DD.log</code>。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>账户与配置</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>错误码</th><th>触发</th><th>处理建议</th></tr></thead>
+    <tbody>
+      <tr><td><code>ACCOUNT_NOT_FOUND</code></td><td>别名不存在或账户被禁用。</td><td>先用 <code>list_account_aliases</code> 取可用别名。</td></tr>
+      <tr><td><code>ACCOUNT_TYPE_MISMATCH</code></td><td>动作/账户类型不匹配（如对 STOCK 账户调用信用接口）。</td><td>区分普通与信用账户分别调用。</td></tr>
+      <tr><td><code>INSTRUMENT_NOT_ALLOWED</code></td><td>标的不在账户 <code>instrument_allowlist</code> 内。</td><td>调整白名单或更换标的。</td></tr>
+      <tr><td><code>CONFIG_ERROR</code></td><td><code>bridge.json</code> 字段越界或类型错误。</td><td>运行 <code>doctor</code> 定位具体字段。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>交易与授权</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>错误码</th><th>触发</th><th>处理建议</th></tr></thead>
+    <tbody>
+      <tr><td><code>PREVIEW_NOT_FOUND</code></td><td><code>preview_id</code> 不存在。</td><td>重新预览。</td></tr>
+      <tr><td><code>PREVIEW_EXPIRED</code></td><td>预览超过 <code>preview_ttl_seconds</code>（默认 120 秒）。</td><td>重新 <code>request_sync</code> → <code>preview_trade</code>。</td></tr>
+      <tr><td><code>PREVIEW_ALREADY_CONSUMED</code></td><td>预览已提交过。再次提交会返回既有意图，不重复下单。</td><td>用 <code>get_trade_intent</code> 查询结果。</td></tr>
+      <tr><td><code>RISK_REJECTED</code></td><td>硬风控未通过。</td><td>读 <code>details.reasons</code>，对照<a href="#appendix-risk">风控原因码</a>。</td></tr>
+      <tr><td><code>SNAPSHOT_CHANGED</code></td><td>作为 <code>details.reason</code> 出现在 <code>RISK_REJECTED</code> 下：风险决策指纹变化。</td><td>必须重新预览，不要尝试绕过。</td></tr>
+      <tr><td><code>LIVE_NOT_ENABLED</code></td><td>未处于所需模式、交易已熔断、或预览模式不是 <code>MANUAL_LIVE</code>。</td><td>核对 Worker/Adapter 模式与熔断状态。</td></tr>
+      <tr><td><code>LOCAL_APPROVAL_REQUIRED</code></td><td><code>MANUAL_LIVE</code> 下缺少有效审批或时间授权。</td><td>调用 <code>authorize_manual_trade</code> 或 <code>authorize_manual_session</code>。</td></tr>
+      <tr><td><code>LOCAL_CONFIRMATION_REQUIRED</code></td><td><code>confirm</code> 确认词不匹配。</td><td>使用各工具规定的确切确认词（见对应章节）。</td></tr>
+      <tr><td><code>DUPLICATE_INTENT</code></td><td>意图与既有请求冲突（唯一键冲突）。</td><td>查询既有意图状态后再决定。</td></tr>
+      <tr><td><code>ORDER_NOT_FOUND</code></td><td>委托不存在，或不属于本桥接（无 <code>client_order_key</code>）。</td><td>只能撤销本桥接产生的委托。</td></tr>
+      <tr><td><code>ORDER_NOT_CANCELLABLE</code></td><td>委托已处于终态。</td><td>查询最新状态。</td></tr>
+      <tr><td><code>INTENT_NOT_FOUND</code></td><td><code>intent_id</code> 不存在。</td><td>用 <code>list_trade_intents</code> 检索。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>快照与时效</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>错误码</th><th>触发</th><th>处理建议</th></tr></thead>
+    <tbody>
+      <tr><td><code>ACCOUNT_SNAPSHOT_STALE</code></td><td>账户/持仓快照缺失或超龄。</td><td><code>request_sync</code> 刷新 ACCOUNT / POSITION。</td></tr>
+      <tr><td><code>QUOTE_SNAPSHOT_STALE</code> <span class="tag">风控码</span></td><td>行情缺失或超过 <code>max_quote_age_seconds</code>（默认 30 秒）。</td><td>提交前立即 <code>request_sync</code> 带 QUOTE 域。</td></tr>
+      <tr><td><code>CREDIT_SNAPSHOT_STALE</code></td><td>信用快照缺失或超龄（默认 600 秒）。</td><td><code>request_sync</code> 刷新 CREDIT_* 域。</td></tr>
+      <tr><td><code>CREDIT_CAPACITY_UNAVAILABLE</code></td><td>动作所需额度快照缺失。</td><td>先跑 <code>request_credit_precheck</code>。</td></tr>
+      <tr><td><code>CREDIT_QUERY_IN_PROGRESS</code></td><td>已有信用额度查询在执行。</td><td>等待后用 <code>get_credit_capacity</code> 取结果。</td></tr>
+      <tr><td><code>CREDIT_QUERY_RATE_LIMITED</code></td><td>距上次查询不足 <code>credit_query_cooldown_seconds</code>（默认 180 秒）。</td><td>读 <code>details.retry_after_seconds</code> 后重试。</td></tr>
+      <tr><td><code>MARKET_DATA_STALE</code></td><td>行情不足以计算价格笼子或涨跌停。</td><td>恢复行情源并重新同步。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>签名与消息</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>错误码</th><th>触发</th><th>处理建议</th></tr></thead>
+    <tbody>
+      <tr><td><code>SIGNATURE_INVALID</code></td><td>HMAC 校验失败或密钥轮换。</td><td>确认 Adapter 与 Worker 共用同一 runtime 密钥。</td></tr>
+      <tr><td><code>MESSAGE_EXPIRED</code></td><td>命令超过 <code>command_ttl_seconds</code>（默认 60 秒）才被 Adapter 读取。</td><td>检查 QMT 策略是否在运行、队列是否积压。</td></tr>
+      <tr><td><code>MESSAGE_SCHEMA_INVALID</code></td><td>信封字段集不精确匹配、协议版本不符或消息类型不符。</td><td>0.3.0 修改了命令协议，需重新部署 Adapter。</td></tr>
+      <tr><td><code>MESSAGE_TOO_LARGE</code></td><td>消息超过 <code>max_message_bytes</code>。</td><td>拆分请求或调大上限（需同步 Adapter）。</td></tr>
+      <tr><td><code>CLOCK_SKEW</code></td><td>时钟偏移超过 5 秒容差。</td><td>校准本机时钟。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>有限自动（P1）</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>错误码</th><th>触发</th><th>处理建议</th></tr></thead>
+    <tbody>
+      <tr><td><code>AUTO_NOT_READY</code></td><td>readiness 检查未通过。</td><td>读 <code>details.reasons</code>，逐项排除后重跑 readiness。</td></tr>
+      <tr><td><code>AUTO_OUTSIDE_TRADING_DAY</code></td><td>周末授权，或本地时间已过 15:00。</td><td>下一个交易日再授权。</td></tr>
+      <tr><td><code>AUTO_CREDIT_NOT_ENABLED</code></td><td>信用账户未开启 <code>limited_auto_credit_enabled</code>。</td><td>完成信用 P0 后在 Bridge 与 Adapter 双侧开启。</td></tr>
+      <tr><td><code>AUTO_PERMIT_NOT_FOUND</code></td><td>没有处于 <code>PAUSED</code> 的许可可恢复。</td><td>用 <code>get_limited_auto_status</code> 查当前状态。</td></tr>
+      <tr><td><code>AUTO_PERMIT_EXPIRED</code></td><td>许可已过期（跨日或过 15:00）。</td><td>创建新许可。</td></tr>
+      <tr><td><code>AUTO_STRATEGY_REAUTHORIZATION_REQUIRED</code></td><td>连续失败达到上限，需修正规则而非恢复。</td><td>更新 <code>rule_version</code> 并创建新许可。</td></tr>
+      <tr><td><code>AUTO_ACCOUNT_EQUITY_UNAVAILABLE</code></td><td>创建许可时 <code>total_asset</code> 缺失或非正。</td><td>先同步账户快照。</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ qmt_health ============ -->
+<section class="section" id="qmt_health">
+  <span class="eyebrow">系统与健康</span>
+  <h2>qmt_health</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>qmt_health</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">返回 Worker、每个 QMT Adapter、快照时效、队列深度、运行模式与熔断状态的综合健康视图。<b>这是每次会话的第一个调用</b>，也是授权前的必经检查。</p>
+    <div class="ep-meta"><span class="tag">无参数</span><span class="tag">永不报单</span></div>
+
+    <h4>响应 <code class="inl">data</code></h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>worker_status</code></td><td><span class="ty">string</span></td><td>固定为 <code>"READY"</code>（能返回响应即代表 Worker 存活）。</td></tr>
+        <tr><td><code>mode</code></td><td><span class="ty">enum</span></td><td>当前 Worker 运行模式。</td></tr>
+        <tr><td><code>halted</code></td><td><span class="ty">boolean</span></td><td>是否处于熔断。<b>只能由本机控制台清除。</b></td></tr>
+        <tr><td><code>halt_reason</code></td><td><span class="ty">string | null</span></td><td>熔断原因。</td></tr>
+        <tr><td><code>accounts[]</code></td><td><span class="ty">object[]</span></td><td>每个已配置账户的健康明细（见下）。</td></tr>
+        <tr><td><code>unresolved_submit_unknown</code></td><td><span class="ty">integer</span></td><td>未处理的 <code>SUBMIT_UNKNOWN</code> 意图数；<b>大于 0 会阻止自动交易</b>。</td></tr>
+        <tr><td><code>as_of</code></td><td><span class="ty">string</span></td><td>Worker 本地时间。</td></tr>
+      </tbody>
+    </table></div>
+
+    <p><b>accounts[] 元素：</b><code class="inl">ready</code> 为 <code class="inl">true</code> 的条件是——有心跳、状态为 <code class="inl">READY</code>、且心跳年龄 ≤ 15 秒。<code class="inl">adapter_status</code> 无心跳时为 <code class="inl">OFFLINE</code>。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params: {}</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "qmt_health",
+  "params": {}
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "worker_status": "READY",
+  "mode": "OBSERVE_ONLY",
+  "halted": false,
+  "halt_reason": null,
+  "accounts": [
+    {
+      "account_alias": "main_stock",
+      "account_type": "STOCK",
+      "adapter_instance": "qmt_stock_01",
+      "adapter_status": "READY",
+      "heartbeat_age_seconds": 3.4,
+      "account_snapshot_age_seconds": 12.9,
+      "ready": true,
+      "queue_depths": {
+        "outbox": 0,
+        "inbox": 0,
+        "dead_letter": 0
+      },
+      "limited_auto": {
+        "configured": false,
+        "active": false,
+        "status": "NONE",
+        "permit_id": null,
+        "health_reasons": []
+      }
+    }
+  ],
+  "unresolved_submit_unknown": 0,
+  "as_of": "2026-09-01T02:15:10.204Z"
+}</pre>
+      </div>
+    </div>
+
+    <div class="note">
+      <p><strong>心跳正常 ≠ 可以下单。</strong>心跳只表示 Adapter 进程在跑。能否调用 <code class="inl">passorder</code> 取决于运行模式、Profile 验证状态、授权与风控，必须逐项确认。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ list_account_aliases ============ -->
+<section class="section" id="list_account_aliases">
+  <span class="eyebrow">系统与健康</span>
+  <h2>list_account_aliases</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>list_account_aliases</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">列出已配置的账户别名。<b>永不返回真实券商账户号</b>——这是有意的安全设计，真实账号只存在于本机配置与 Profile 绑定中。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_type</code></td><td><span class="ty">enum</span></td><td><span class="opt">可选</span></td><td><code>STOCK</code> 或 <code>CREDIT</code>。省略时返回全部。其他值抛 <code>INVALID_REQUEST</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">按类型过滤</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "list_account_aliases",
+  "params": { "account_type": "STOCK" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">[
+  {
+    "account_alias": "main_stock",
+    "account_type": "STOCK",
+    "adapter_instance": "qmt_stock_01",
+    "enabled": true
+  },
+  {
+    "account_alias": "main_credit",
+    "account_type": "CREDIT",
+    "adapter_instance": "qmt_credit_01",
+    "enabled": false
+  }
+]</pre>
+      </div>
+    </div>
+
+    <p><code class="inl">enabled:false</code> 的账户会被 <code class="inl">config.account()</code> 视为不存在，任何以它为别名的调用都会返回 <code class="inl">ACCOUNT_NOT_FOUND</code>。信用账户默认不启用。</p>
+  </div>
+</section>
+
+<!-- ============ get_account_snapshot ============ -->
+<section class="section" id="get_account_snapshot">
+  <span class="eyebrow">账户与风控</span>
+  <h2>get_account_snapshot</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_account_snapshot</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">取最新的归一化普通证券账户快照。返回的是<b>本机数据库里已存在的快照</b>，不会主动触发 QMT 查询——要刷新请先调用 <code class="inl">request_sync</code>。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_account_snapshot",
+  "params": { "account_alias": "main_stock" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "snapshot": {
+    "total_asset": 988523.46,
+    "available_cash": 671204.18,
+    "market_value": 317319.28,
+    "frozen_cash": 0,
+    "trading_day": "20260901"
+  },
+  "age_seconds": 8.7
+}</pre>
+      </div>
+    </div>
+
+    <h4>快照字段</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>total_asset</code></td><td><span class="ty">number</span></td><td>总资产。<code>LIMITED_AUTO</code> 用它做回撤基准。</td></tr>
+        <tr><td><code>available_cash</code></td><td><span class="ty">number</span></td><td>可用资金。买入硬校验的输入。</td></tr>
+        <tr><td><code>market_value</code></td><td><span class="ty">number</span></td><td>持仓市值。仅随行情变化，<b>不进入风险决策指纹</b>。</td></tr>
+        <tr><td><code>frozen_cash</code></td><td><span class="ty">number</span></td><td>冻结资金。</td></tr>
+        <tr><td><code>trading_day</code></td><td><span class="ty">string</span></td><td><code>YYYYMMDD</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="note warn">
+      <p><strong>时长判定在调用方。</strong>本方法不校验 <code class="inl">max_snapshot_age_seconds</code>，只如实返回 <code class="inl">age_seconds</code>。风控校验发生在 <code class="inl">preview_trade</code> 与 <code class="inl">submit_trade_intent</code>。快照缺失时返回 <code class="inl">ACCOUNT_SNAPSHOT_STALE</code>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ get_risk_limits ============ -->
+<section class="section" id="get_risk_limits">
+  <span class="eyebrow">账户与风控</span>
+  <h2>get_risk_limits</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_risk_limits</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">返回某账户当前生效的本地硬风控额度与数量规则。这些值<b>不可通过 MCP 修改</b>，只能编辑 <code class="inl">bridge.json</code> 并重启 Worker。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_risk_limits",
+  "params": { "account_alias": "main_stock" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 普通账户</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "account_alias": "main_stock",
+  "account_type": "STOCK",
+  "lot_size": 100,
+  "odd_lot_sell_allowed": true,
+  "order_volume_rules": {
+    "default": { "min_buy": 100, "min_sell": 100 },
+    "prefix_overrides": [
+      { "prefixes": ["688", "689"], "min_buy": 200, "min_sell": 200 }
+    ]
+  },
+  "max_order_notional": 200000.0,
+  "max_order_volume": 500000,
+  "max_daily_notional": 2000000.0,
+  "min_maintenance_ratio": 1.5,
+  "max_snapshot_age_seconds": 90,
+  "max_quote_age_seconds": 30,
+  "max_credit_snapshot_age_seconds": 600,
+  "preview_ttl_seconds": 120,
+  "command_ttl_seconds": 60,
+  "credit_query_cooldown_seconds": 180,
+  "max_auto_authorization_minutes": 720,
+  "max_auto_session_notional": 2000000.0,
+  "max_auto_orders": 1000,
+  "min_auto_order_interval_seconds": 1,
+  "max_auto_concurrent_orders": 20,
+  "max_auto_symbol_position_notional": 500000.0,
+  "max_auto_account_drawdown": 100000.0,
+  "auto_heartbeat_max_age_seconds": 15,
+  "auto_max_queue_depth": 20
+}</pre>
+      </div>
+    </div>
+
+    <p>信用账户会额外返回 <code class="inl">credit_action_mapping</code>，默认 <code class="inl">{"buy":"MARGIN_BUY","sell":"COLLATERAL_SELL"}</code>——即通用买入只执行融资买入、通用卖出只执行担保品卖出，<b>不做第二次尝试</b>。</p>
+
+    <div class="note danger">
+      <p><strong>额度是通用硬上限，不是仓位建议。</strong>上表的 20 万 / 200 万是按百万级账户规模给的发布默认值，与账户资产比例无关。资金规模、换手率或风险承受力较低时应主动调低——但要同步修改 Bridge 与 Adapter 两侧，否则 <code class="inl">doctor</code> 会报不同步。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ get_quote_snapshot ============ -->
+<section class="section" id="get_quote_snapshot">
+  <span class="eyebrow">行情 · 持仓 · 委托</span>
+  <h2>get_quote_snapshot</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_quote_snapshot</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">取 QMT 衍生行情，含涨跌停价、最小价位与动态价格笼子边界。这些字段是价格保护的输入，<b>必须先 <code class="inl">request_sync</code> 刷新</b>，否则拿到的是陈旧数据。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+        <tr><td><code>symbols</code></td><td><span class="ty">string[]</span></td><td><span class="req">必填</span></td><td>1–100 个代码，<code class="inl">^\d{6}(\.(SH|SZ|BJ))?$</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_quote_snapshot",
+  "params": {
+    "account_alias": "main_stock",
+    "symbols": ["600000.SH", "000001.SZ"]
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "quotes": [
+    {
+      "snapshot_id": "qsnap_7a1f",
+      "captured_at": "2026-09-01T02:11:02.880Z",
+      "age_seconds": 4.1,
+      "quote": {
+        "symbol": "600000.SH",
+        "last_price": 11.42,
+        "open": 11.3,
+        "high": 11.5,
+        "low": 11.26,
+        "prev_close": 11.32,
+        "tick_size": 0.01,
+        "upper_limit": 12.45,
+        "lower_limit": 10.19,
+        "cage_upper": 11.79,
+        "cage_lower": 11.05,
+        "bid": 11.41,
+        "ask": 11.43,
+        "tick_at": "2026-09-01T02:11:02.500Z"
+      }
+    }
+  ],
+  "missing_symbols": ["000001.SZ"]
+}</pre>
+      </div>
+    </div>
+
+    <p><code class="inl">age_seconds</code> 取 <code class="inl">captured_at</code> 与 <code class="inl">tick_at</code> 两者中<b>较旧</b>的那个——取最保守值。缺失的标的列在 <code class="inl">missing_symbols</code>，不会被省略。</p>
+  </div>
+</section>
+
+<!-- ============ get_positions ============ -->
+<section class="section" id="get_positions">
+  <span class="eyebrow">行情 · 持仓 · 委托</span>
+  <h2>get_positions</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_positions</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">从<b>同一份一致性快照</b>取持仓。返回的所有持仓共享一个 <code class="inl">snapshot_id</code>，不会出现跨快照拼接的不一致数据。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+        <tr><td><code>symbols</code></td><td><span class="ty">string[]</span></td><td><span class="opt">可选</span></td><td>最多 100 个代码；省略返回全部。</td></tr>
+        <tr><td><code>include_zero</code></td><td><span class="ty">boolean</span></td><td><span class="opt">可选</span></td><td>默认 <code>false</code>，过滤掉零持仓。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_positions",
+  "params": {
+    "account_alias": "main_stock",
+    "include_zero": false
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "snapshot_id": "psnap_31cd",
+  "captured_at": "2026-09-01T02:14:55.300Z",
+  "age_seconds": 21.6,
+  "positions": [
+    {
+      "symbol": "601398.SH",
+      "total_volume": 5000,
+      "available_volume": 5000,
+      "frozen_volume": 0,
+      "avg_cost": 6.812,
+      "last_price": 7.06,
+      "market_value": 35300.0
+    },
+    {
+      "symbol": "601899.SH",
+      "total_volume": 1000,
+      "available_volume": 1000,
+      "frozen_volume": 0,
+      "avg_cost": 18.44,
+      "last_price": 19.12,
+      "market_value": 19120.0
+    }
+  ]
+}</pre>
+      </div>
+    </div>
+
+    <p><code class="inl">available_volume</code> 是卖出硬校验的输入——可卖量受 T+1 与冻结量影响，通常小于 <code class="inl">total_volume</code>。</p>
+  </div>
+</section>
+
+<!-- ============ get_orders ============ -->
+<section class="section" id="get_orders">
+  <span class="eyebrow">行情 · 持仓 · 委托</span>
+  <h2>get_orders</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_orders</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">取归一化后的 QMT 委托记录，按 <code class="inl">updated_at</code> 倒序。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+        <tr><td><code>status</code></td><td><span class="ty">string | string[]</span></td><td><span class="opt">可选</span></td><td>按状态过滤；传数组时为 IN 查询。</td></tr>
+        <tr><td><code>trading_day</code></td><td><span class="ty">string</span></td><td><span class="opt">可选</span></td><td><code>YYYY-MM-DD</code> 或 <code>YYYYMMDD</code>，内部统一去连字符。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">按状态数组过滤</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_orders",
+  "params": {
+    "account_alias": "main_stock",
+    "status": ["ACCEPTED", "PARTIALLY_FILLED"],
+    "trading_day": "2026-09-01"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 数组</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">[
+  {
+    "qmt_order_id": "20260901000321",
+    "client_order_key": "cok_9d31",
+    "intent_id": "intent_7c2a",
+    "account_alias": "main_stock",
+    "symbol": "601398.SH",
+    "action": "BUY",
+    "status": "ACCEPTED",
+    "requested_volume": 500,
+    "filled_volume": 0,
+    "limit_price": 7.05,
+    "trading_day": "20260901",
+    "updated_at": "2026-09-01T02:20:11.400Z"
+  }
+]</pre>
+      </div>
+    </div>
+
+    <p><b>活动状态</b>（可撤销）：<code class="inl">QUEUED</code>、<code class="inl">REPORTED</code>、<code class="inl">ACCEPTED</code>、<code class="inl">ORDER_ACCEPTED</code>、<code class="inl">PARTIALLY_FILLED</code>、<code class="inl">CANCEL_REQUESTED</code>、<code class="inl">SUBMIT_CALLED</code>。活动委托同时构成新订单的冲突校验输入。</p>
+  </div>
+</section>
+
+<!-- ============ get_trades ============ -->
+<section class="section" id="get_trades">
+  <span class="eyebrow">行情 · 持仓 · 委托</span>
+  <h2>get_trades</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_trades</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">取归一化成交记录，按 <code class="inl">traded_at</code> 倒序。当日累计成交额是单日额度校验的输入。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+        <tr><td><code>trading_day</code></td><td><span class="ty">string</span></td><td><span class="opt">可选</span></td><td>交易日过滤。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_trades",
+  "params": {
+    "account_alias": "main_stock",
+    "trading_day": "20260901"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 数组</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">[
+  {
+    "trade_id": "trd_4e18",
+    "qmt_order_id": "20260831000104",
+    "intent_id": "intent_2b90",
+    "symbol": "601899.SH",
+    "action": "BUY",
+    "volume": 1000,
+    "price": 18.44,
+    "traded_at": "2026-08-31T06:12:03.000Z",
+    "trading_day": "20260831"
+  }
+]</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 信用账户 ============ -->
+<section class="section" id="get_credit_account_snapshot">
+  <span class="eyebrow">信用账户</span>
+  <h2>get_credit_account_snapshot</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_credit_account_snapshot</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+      <span class="tag">仅 CREDIT</span>
+    </div>
+    <p class="ep-desc">取最新信用账户资产、负债、额度与维持担保比例快照。对普通账户调用返回 <code class="inl">ACCOUNT_TYPE_MISMATCH</code>。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_credit_account_snapshot",
+  "params": { "account_alias": "main_credit" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "snapshot": {
+    "total_asset": 512300.0,
+    "total_debt": 120400.0,
+    "net_asset": 391900.0,
+    "maintenance_ratio": 4.25,
+    "available_margin": 268000.0,
+    "financing_quota": 300000.0,
+    "securities_quota": 150000.0,
+    "trading_day": "20260901"
+  },
+  "age_seconds": 45.2
+}</pre>
+      </div>
+    </div>
+
+    <p><code class="inl">maintenance_ratio</code> 低于 <code class="inl">min_maintenance_ratio</code>（默认 1.5）会触发 <code class="inl">CREDIT_RISK_LIMIT</code> 拒绝。快照缺失或超龄返回 <code class="inl">CREDIT_SNAPSHOT_STALE</code>。</p>
+
+    <div class="note warn">
+      <p><strong>信用字段名必须现场验证。</strong><code class="inl">field_map</code>、<code class="inl">credit_field_map</code>、<code class="inl">eligibility_allowed_values</code> 只能填入已在当前 QMT/券商组合完成 P0 验证的结果。不同券商版本的字段与枚举差异很大，不要凭经验猜测。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="get_credit_debt_contracts">
+  <span class="eyebrow">信用账户</span>
+  <h2>get_credit_debt_contracts</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_credit_debt_contracts</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+      <span class="tag">仅 CREDIT</span>
+    </div>
+    <p class="ep-desc">取最新快照中的负债合约引用（已脱敏）。还款类动作需要用它提供的 <code class="inl">debt_contract_ref</code>。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>信用账户别名。</td></tr>
+        <tr><td><code>symbol</code></td><td><span class="ty">string</span></td><td><span class="opt">可选</span></td><td>按标的代码过滤。</td></tr>
+        <tr><td><code>status</code></td><td><span class="ty">string</span></td><td><span class="opt">可选</span></td><td>默认 <code>"OPEN"</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_credit_debt_contracts",
+  "params": {
+    "account_alias": "main_credit",
+    "symbol": "600000.SH",
+    "status": "OPEN"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "snapshot_id": "cdsnap_19af",
+  "captured_at": "2026-09-01T02:10:00.000Z",
+  "debts": [
+    {
+      "debt_contract_ref": "dctr_****-4417",
+      "symbol": "600000.SH",
+      "debt_type": "MARGIN",
+      "status": "OPEN",
+      "open_date": "20260812",
+      "remain_volume": 3000,
+      "remain_amount": 34200.0
+    }
+  ]
+}</pre>
+      </div>
+    </div>
+
+    <p>无快照时返回 <code class="inl">{"snapshot_id": null, "debts": []}</code>——这是正常空结果，不是错误。</p>
+  </div>
+</section>
+
+<section class="section" id="get_credit_instrument_eligibility">
+  <span class="eyebrow">信用账户</span>
+  <h2>get_credit_instrument_eligibility</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_credit_instrument_eligibility</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+      <span class="tag">仅 CREDIT</span>
+    </div>
+    <p class="ep-desc">查询标的的担保品、融资买入、融券卖出资格。资格不足会产生 <code class="inl">CREDIT_INSTRUMENT_NOT_ELIGIBLE</code> 风控拒绝。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>信用账户别名。</td></tr>
+        <tr><td><code>symbols</code></td><td><span class="ty">string[]</span></td><td><span class="req">必填</span></td><td>1–100 个代码，不可为空数组。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_credit_instrument_eligibility",
+  "params": {
+    "account_alias": "main_credit",
+    "symbols": ["600000.SH", "000001.SZ"]
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "snapshot_id": "cesnap_2f70",
+  "captured_at": "2026-09-01T02:10:05.000Z",
+  "instruments": [
+    {
+      "symbol": "600000.SH",
+      "collateral_eligible": true,
+      "margin_eligible": true,
+      "short_eligible": false,
+      "margin_ratio": 1.0,
+      "short_ratio": null
+    }
+  ],
+  "missing": ["000001.SZ"]
+}</pre>
+      </div>
+    </div>
+
+    <p><code class="inl">missing</code> 列出快照中无记录的标的——不要用空数组推断"全部可交易"，应视为<b>资格未知</b>并先同步。</p>
+  </div>
+</section>
+
+<section class="section" id="get_credit_capacity">
+  <span class="eyebrow">信用账户</span>
+  <h2>get_credit_capacity</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_credit_capacity</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+      <span class="tag">仅 CREDIT</span>
+    </div>
+    <p class="ep-desc">取最近 50 条序列化的信用额度查询结果。这是读取 <code class="inl">request_credit_precheck</code> 结果的配套方法——预检本身是异步的。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_credit_capacity",
+  "params": { "account_alias": "main_credit" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 数组</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">[
+  {
+    "seq": "creditseq_8a02",
+    "status": "COMPLETED",
+    "requested_at": "2026-09-01T02:09:10.000Z",
+    "completed_at": "2026-09-01T02:09:12.400Z",
+    "request": {
+      "requests": [
+        { "symbol": "600000.SH", "credit_action": "MARGIN_BUY", "price_type": "LIMIT", "price": 11.42 }
+      ]
+    },
+    "result": {
+      "capacity_snapshot_id": "ccap_creditseq_8a02",
+      "items": [
+        { "symbol": "600000.SH", "max_volume": 26000, "max_amount": 296920.0 }
+      ]
+    }
+  }
+]</pre>
+      </div>
+    </div>
+
+    <p><code class="inl">status</code> 取 <code class="inl">IN_PROGRESS</code> / <code class="inl">COMPLETED</code> / <code class="inl">FAILED</code>。<code class="inl">result</code> 在完成前为 <code class="inl">null</code>。</p>
+  </div>
+</section>
+
+<section class="section" id="request_credit_precheck">
+  <span class="eyebrow">信用账户</span>
+  <h2>request_credit_precheck</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>request_credit_precheck</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-put">WRITE</span>
+      <span class="tag warn">限流</span>
+    </div>
+    <p class="ep-desc">发起一次<b>串行</b>且限流的信用额度查询。不创建交易意图，也不下单——它只是为后续预览提供额度快照。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>信用账户别名。</td></tr>
+        <tr><td><code>requests</code></td><td><span class="ty">object[]</span></td><td><span class="req">必填</span></td><td>1–20 条；<b>同一批次必须只用一种 <code>credit_action</code></b>。</td></tr>
+        <tr><td><code>requests[].symbol</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>6 位代码。</td></tr>
+        <tr><td><code>requests[].credit_action</code></td><td><span class="ty">enum</span></td><td><span class="req">必填</span></td><td><code>COLLATERAL_BUY</code> / <code>COLLATERAL_SELL</code> / <code>MARGIN_BUY</code> / <code>SHORT_SELL</code> / <code>BUY_TO_REPAY</code> / <code>SELL_TO_REPAY</code>。</td></tr>
+        <tr><td><code>requests[].price_type</code></td><td><span class="ty">enum</span></td><td><span class="req">必填</span></td><td>当前仅支持 <code>LIMIT</code>。</td></tr>
+        <tr><td><code>requests[].price</code></td><td><span class="ty">number</span></td><td><span class="req">必填</span></td><td>&gt; 0 的限价。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "request_credit_precheck",
+  "params": {
+    "account_alias": "main_credit",
+    "requests": [
+      { "symbol": "600000.SH", "credit_action": "MARGIN_BUY", "price_type": "LIMIT", "price": 11.42 },
+      { "symbol": "000001.SZ", "credit_action": "MARGIN_BUY", "price_type": "LIMIT", "price": 12.05 }
+    ]
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "message_id": "msg_c41f",
+  "status": "DELIVERED",
+  "command_type": "CREDIT_PRECHECK",
+  "seq": "creditseq_8a02",
+  "capacity_snapshot_id": "ccap_creditseq_8a02",
+  "query_status": "IN_PROGRESS"
+}</pre>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <p><strong>串行 + 冷却双重限制。</strong>同一账户同时只允许一个 <code class="inl">IN_PROGRESS</code> 查询，重复提交返回 <code class="inl">CREDIT_QUERY_IN_PROGRESS</code>；距上次查询不足 <code class="inl">credit_query_cooldown_seconds</code>（默认 180 秒）返回 <code class="inl">CREDIT_QUERY_RATE_LIMITED</code>，并在 <code class="inl">details.retry_after_seconds</code> 给出等待秒数。混合多种 <code class="inl">credit_action</code> 会直接抛 <code class="inl">INVALID_REQUEST</code>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ preview_trade ============ -->
+<section class="section" id="preview_trade">
+  <span class="eyebrow">交易生命周期</span>
+  <h2>preview_trade</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>preview_trade</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-put">WRITE</span>
+    </div>
+    <p class="ep-desc">把交易意图归一化为结构化动作、数量与限价，并跑完整硬风控。<b>不产生任何可执行命令</b>。价格会按有利方向取整到最小价位，并受涨跌停与交易所动态价格笼子约束。</p>
+    <div class="ep-meta"><span class="tag ok">安全</span><span class="tag">永不报单</span><span class="tag">TTL 120s</span></div>
+
+    <div class="note warn">
+      <p><strong>必须先刷新行情。</strong>调用前立即执行 <code class="inl">request_sync</code> 并带 <code class="inl">QUOTE</code> 域，否则大概率命中 <code class="inl">QUOTE_SNAPSHOT_STALE</code>。</p>
+    </div>
+
+    <h4>参数</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>trade_request</code></td><td><span class="ty">object</span></td><td><span class="req">必填</span></td><td>完整交易请求（结构见下）。<code>additionalProperties:false</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>trade_request 结构</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+        <tr><td><code>instrument</code></td><td><span class="ty">object</span></td><td><span class="req">必填</span></td><td><code>{canonical_symbol, qmt_symbol}</code>。<b>v1 要求两者一致</b>，不一致抛 <code>INVALID_REQUEST</code>。</td></tr>
+        <tr><td><code>action</code></td><td><span class="ty">enum</span></td><td><span class="req">必填</span></td><td>普通账户：<code>BUY</code> / <code>SELL</code> / <code>TARGET_POSITION</code>。信用账户：六种显式信用动作 + <code>BUY</code> / <code>SELL</code>。</td></tr>
+        <tr><td><code>sizing</code></td><td><span class="ty">object</span></td><td><span class="req">必填</span></td><td>见 sizing 表。</td></tr>
+        <tr><td><code>price_policy</code></td><td><span class="ty">object</span></td><td><span class="req">必填</span></td><td>见 price_policy 表。</td></tr>
+        <tr><td><code>execution_mode</code></td><td><span class="ty">enum</span></td><td><span class="req">必填</span></td><td><code>OBSERVE_ONLY</code> / <code>SIM_SIGNAL</code> / <code>MANUAL_LIVE</code> / <code>LIMITED_AUTO</code>。必须与 Worker 当前模式一致。</td></tr>
+        <tr><td><code>source</code></td><td><span class="ty">object</span></td><td><span class="req">必填</span></td><td><code>{type, signal_id}</code> 必填，另可带 <code>rule_set_id</code>、<code>rule_version</code>。<code>LIMITED_AUTO</code> 下后两者必须与许可逐字一致。</td></tr>
+        <tr><td><code>account_type</code></td><td><span class="ty">enum</span></td><td><span class="opt">可选</span></td><td>省略时取账户配置值；不匹配抛 <code>ACCOUNT_TYPE_MISMATCH</code>。</td></tr>
+        <tr><td><code>asset_type</code></td><td><span class="ty">enum</span></td><td><span class="opt">可选</span></td><td>当前仅支持 <code>STOCK</code>。</td></tr>
+        <tr><td><code>signal_evidence</code></td><td><span class="ty">object</span></td><td><span class="opt">可选</span></td><td><code>{occurred_at, quote_at, reference_price}</code>，用于可审计性留痕。</td></tr>
+        <tr><td><code>credit</code></td><td><span class="ty">object</span></td><td><span class="opt">可选</span></td><td><code>{debt_contract_ref, capacity_snapshot_id}</code>，还款动作需要。</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>sizing</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>type</code></td><td><span class="ty">enum</span></td><td><span class="req">必填</span></td><td><code>FIXED_VOLUME</code>（股数）/ <code>FIXED_NOTIONAL</code>（金额）/ <code>AVAILABLE_CASH_PERCENT</code>（可用资金百分比）/ <code>TARGET_PORTFOLIO_PERCENT</code> / <code>TARGET_POSITION</code>。</td></tr>
+        <tr><td><code>value</code></td><td><span class="ty">number</span></td><td><span class="req">必填</span></td><td>&gt; 0。</td></tr>
+        <tr><td><code>max_volume</code></td><td><span class="ty">integer</span></td><td><span class="opt">可选</span></td><td>≥ 1，为推导出的数量加一道上限。</td></tr>
+      </tbody>
+    </table></div>
+    <p><b>搭配约束：</b><code class="inl">TARGET_POSITION</code> 动作必须配 <code class="inl">TARGET_POSITION</code> sizing，反之亦然；信用账户不支持 <code class="inl">TARGET_PORTFOLIO_PERCENT</code> 与 <code class="inl">TARGET_POSITION</code>。</p>
+
+    <h4>price_policy</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>type</code></td><td><span class="ty">enum</span></td><td><span class="req">必填</span></td><td><code>FIXED_LIMIT</code> / <code>LIMIT_FROM_LATEST</code> / <code>LIMIT_FROM_BOOK</code>。</td></tr>
+        <tr><td><code>limit_price</code></td><td><span class="ty">number</span></td><td><span class="req">条件</span></td><td><code>FIXED_LIMIT</code> 必填且 &gt; 0；派生策略<b>不接受</b>此字段。</td></tr>
+        <tr><td><code>offset_bps</code></td><td><span class="ty">number</span></td><td><span class="opt">可选</span></td><td>−1000 … 1000 基点，仅派生策略接受；<code>FIXED_LIMIT</code> 不接受。</td></tr>
+        <tr><td><code>max_deviation_pct</code></td><td><span class="ty">number</span></td><td><span class="opt">可选</span></td><td>0 … 1，相对基准价的最大偏离比例。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">按股数限价买入</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "preview_trade",
+  "params": {
+    "trade_request": {
+      "account_alias": "main_stock",
+      "instrument": { "canonical_symbol": "601398.SH" },
+      "action": "BUY",
+      "sizing": { "type": "FIXED_VOLUME", "value": 500 },
+      "price_policy": {
+        "type": "LIMIT_FROM_LATEST",
+        "offset_bps": 5,
+        "max_deviation_pct": 0.01
+      },
+      "execution_mode": "OBSERVE_ONLY",
+      "source": {
+        "type": "manual",
+        "signal_id": "sig_20260901_001",
+        "rule_set_id": "core-holding",
+        "rule_version": "2026-09-01-v1"
+      },
+      "signal_evidence": {
+        "quote_at": "2026-09-01T02:20:00.000Z",
+        "reference_price": 7.05
+      }
+    }
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "preview_id": "preview_5c8e",
+  "created_at": "2026-09-01T02:20:04.100Z",
+  "expires_at": "2026-09-01T02:22:04.100Z",
+  "account_alias": "main_stock",
+  "account_type": "STOCK",
+  "asset_type": "STOCK",
+  "instrument": { "canonical_symbol": "601398.SH", "qmt_symbol": "601398.SH" },
+  "action": "BUY",
+  "resolved_action": "BUY",
+  "execution_mode": "OBSERVE_ONLY",
+  "resolved_order": {
+    "volume": 500,
+    "price_type": "LIMIT",
+    "limit_price": 7.05,
+    "requested_limit_price": 7.0535,
+    "notional": 3525.0,
+    "volume_rule": "DEFAULT"
+  },
+  "price_guard": {
+    "applied": true,
+    "reason": "TICK_ROUNDED",
+    "quote_snapshot_id": "qsnap_7a1f",
+    "quote_age_seconds": 3.2
+  },
+  "account_summary": {
+    "snapshot_id": "asnap_99b1",
+    "available_cash": 671204.18,
+    "total_asset": 988523.46,
+    "position_total_volume": 5000,
+    "position_available_volume": 5000
+  },
+  "credit_summary": null,
+  "limited_auto": null,
+  "active_order_conflicts": [],
+  "snapshot_fingerprint": "9f2a1c04...",
+  "snapshot_versions": { "account": "asnap_99b1", "position": "psnap_31cd", "quote": "qsnap_7a1f" },
+  "risk": { "allowed": true, "reasons": [] },
+  "warnings": []
+}</pre>
+      </div>
+    </div>
+
+    <h4>关键响应字段</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>字段</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>resolved_order.limit_price</code></td><td>经价格笼子、涨跌停与最小价位修正后的<b>最终限价</b>。买入向下取整、卖出向上取整（有利方向）。</td></tr>
+        <tr><td><code>resolved_order.requested_limit_price</code></td><td>修正前的原始推导价。</td></tr>
+        <tr><td><code>resolved_order.notional</code></td><td><code>volume × limit_price</code>，单笔/单日额度校验的输入。</td></tr>
+        <tr><td><code>price_guard.reason</code></td><td><code>TICK_ROUNDED</code> / <code>CAGE_CLAMPED</code> / <code>LIMIT_CLAMPED</code> 等，说明价格被如何调整。</td></tr>
+        <tr><td><code>risk.allowed</code></td><td><b>唯一放行判据。</b><code>false</code> 时 <code>risk.reasons</code> 给出全部原因码。</td></tr>
+        <tr><td><code>snapshot_fingerprint</code></td><td>风险决策指纹。提交时会重算并比对，变化即 <code>SNAPSHOT_CHANGED</code>。</td></tr>
+        <tr><td><code>active_order_conflicts</code></td><td>同标的活动中委托的 QMT 委托号列表。</td></tr>
+        <tr><td><code>expires_at</code></td><td><code>preview_ttl_seconds</code>（默认 120 秒）后失效。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="note ok">
+      <p><strong>0.2.3 起的指纹语义。</strong>提交一致性已从"所有快照 UUID 必须完全不变"改为"<b>风险决策必须保持一致</b>"。仅快照重新编号，或行情波动只改变市值/总资产/现价而未改变最终委托与风险输入时，<b>不再</b>返回 <code class="inl">SNAPSHOT_CHANGED</code>。但可用资金、可卖量、最终限价或数量、活动委托、日内额度、信用指标任一实质变化，仍会要求重新预览。</p>
+    </div>
+
+    <div class="note danger">
+      <p><strong>LIMITED_AUTO 下失败的预览会暂停许可。</strong>若 <code class="inl">execution_mode</code> 为 <code class="inl">LIMITED_AUTO</code> 且风控拒绝，活动许可会被自动暂停，原因写入 <code class="inl">pause_reason</code>。排除后必须用 <code class="inl">resume_limited_auto</code> 显式恢复——<b>不会静默自动恢复</b>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ submit_trade_intent ============ -->
+<section class="section" id="submit_trade_intent">
+  <span class="eyebrow">交易生命周期</span>
+  <h2>submit_trade_intent</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>submit_trade_intent</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-del">RISK</span>
+    </div>
+    <p class="ep-desc">提交一个未过期预览。会用<b>最新</b>账户、持仓、行情、活动委托与信用数据重跑完整硬风控，比对风险决策指纹，校验授权，然后才把带签名的唯一命令写入队列。</p>
+    <div class="ep-meta"><span class="tag risk">可能真实报单</span><span class="tag">幂等</span></div>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>preview_id</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>来自 <code>preview_trade</code>。</td></tr>
+        <tr><td><code>approval_context</code></td><td><span class="ty">object</span></td><td><span class="opt">条件</span></td><td><code>{local_approval_id}</code>。<code>MANUAL_LIVE</code> 逐笔授权时必填；存在有效时间授权或 P1 许可时省略。</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>授权要求（按模式）</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>execution_mode</th><th>提交前置条件</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge b-get">OBSERVE_ONLY</span></td><td>无需授权。Adapter 空跑并回 ACK，不调用 <code>passorder</code>。</td></tr>
+        <tr><td><span class="badge b-post">SIM_SIGNAL</span></td><td>已验证并本机签名的 Profile；Adapter 同模式。</td></tr>
+        <tr><td><span class="badge b-put">MANUAL_LIVE</span></td><td>有效的逐笔 <code>approval_context</code>，<b>或</b>该账户存在有效的限时不限笔数授权。两者皆无 → <code>LOCAL_APPROVAL_REQUIRED</code>。</td></tr>
+        <tr><td><span class="badge b-del">LIMITED_AUTO</span></td><td>活动的 P1 许可，且策略哈希、授权代次、时段、标的、动作、策略版本、额度、频率、并发、持仓敞口、账户回撤逐项通过。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">MANUAL_LIVE 逐笔</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "submit_trade_intent",
+  "params": {
+    "preview_id": "preview_5c8e",
+    "approval_context": { "local_approval_id": "approval_1d90" }
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 意图对象</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "intent_id": "intent_7c2a",
+  "intent_revision": 1,
+  "preview_id": "preview_5c8e",
+  "client_order_key": "cok_9d31",
+  "account_alias": "main_stock",
+  "status": "QUEUED",
+  "action": "BUY",
+  "symbol": "601398.SH",
+  "requested_volume": 500,
+  "limit_price": 7.05,
+  "execution_mode": "OBSERVE_ONLY",
+  "source_signal_id": "sig_20260901_001",
+  "created_at": "2026-09-01T02:20:09.800Z",
+  "updated_at": "2026-09-01T02:20:09.800Z",
+  "payload": {
+    "type": "EXECUTE_ORDER",
+    "intent_id": "intent_7c2a",
+    "client_order_key": "cok_9d31",
+    "qmt_symbol": "601398.SH",
+    "action": "BUY",
+    "resolved_order": { "volume": 500, "price_type": "LIMIT", "limit_price": 7.05 },
+    "execution_mode": "OBSERVE_ONLY",
+    "auto_permit": null
+  },
+  "orders": [],
+  "trades": []
+}</pre>
+      </div>
+    </div>
+
+    <div class="note ok">
+      <p><strong>提交是幂等的。</strong>重复提交同一个 <code class="inl">preview_id</code> 不会下第二张委托——方法会检测到 <code class="inl">consumed_intent_id</code> 并直接返回既有意图对象。网络超时后重试是安全的。</p>
+    </div>
+
+    <div class="note">
+      <p><strong>返回 <code class="inl">QUEUED</code> 不等于已报单。</strong>命令只是入队。最终状态要用 <code class="inl">get_trade_intent</code> 或 <code class="inl">get_orders</code> 轮询。<code class="inl">SUBMIT_UNKNOWN</code> 表示结果未明，系统<b>不会</b>自动重发，需人工处理，且会阻止新的自动订单。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ cancel_order ============ -->
+<section class="section" id="cancel_order">
+  <span class="eyebrow">交易生命周期</span>
+  <h2>cancel_order</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>cancel_order</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-del">RISK</span>
+    </div>
+    <p class="ep-desc">请求撤销<b>由本桥接产生</b>的、处于活动状态的单张 QMT 委托。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+        <tr><td><code>order_id</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>QMT 委托号。</td></tr>
+        <tr><td><code>reason</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>1–200 字符，写入审计日志。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "cancel_order",
+  "params": {
+    "account_alias": "main_stock",
+    "order_id": "20260901000321",
+    "reason": "用户要求撤销未成交买入委托"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 重复提交时 duplicate=true</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "message_id": "msg_b7f2",
+  "status": "DELIVERED",
+  "command_type": "CANCEL_ORDER"
+}</pre>
+      </div>
+    </div>
+
+    <ul class="plain">
+      <li><code class="inl">OBSERVE_ONLY</code> 模式下禁用，返回 <code class="inl">LIVE_NOT_ENABLED</code>。</li>
+      <li>委托不属于本桥接（无 <code class="inl">client_order_key</code>）→ <code class="inl">ORDER_NOT_FOUND</code>。手工在 QMT 里下的单撤不掉。</li>
+      <li>委托已终态 → <code class="inl">ORDER_NOT_CANCELLABLE</code>。</li>
+      <li>重复撤销同一委托会返回既有命令且 <code class="inl">duplicate:true</code>，不会重复下发。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ get_trade_intent ============ -->
+<section class="section" id="get_trade_intent">
+  <span class="eyebrow">交易生命周期</span>
+  <h2>get_trade_intent</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_trade_intent</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">取单个意图，连同其关联的委托与成交流水。存在多版本时返回<b>最新修订</b>。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_trade_intent",
+  "params": { "intent_id": "intent_7c2a" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "intent_id": "intent_7c2a",
+  "intent_revision": 1,
+  "preview_id": "preview_5c8e",
+  "client_order_key": "cok_9d31",
+  "account_alias": "main_stock",
+  "status": "FILLED",
+  "action": "BUY",
+  "symbol": "601398.SH",
+  "requested_volume": 500,
+  "limit_price": 7.05,
+  "execution_mode": "OBSERVE_ONLY",
+  "created_at": "2026-09-01T02:20:09.800Z",
+  "updated_at": "2026-09-01T02:20:14.200Z",
+  "payload": { "...": "完整签名命令" },
+  "orders": [
+    {
+      "qmt_order_id": "20260901000321",
+      "status": "FILLED",
+      "requested_volume": 500,
+      "filled_volume": 500,
+      "limit_price": 7.05
+    }
+  ],
+  "trades": [
+    { "trade_id": "trd_9a10", "volume": 500, "price": 7.04, "traded_at": "2026-09-01T02:20:14.000Z" }
+  ]
+}</pre>
+      </div>
+    </div>
+
+    <p>意图不存在返回 <code class="inl">INTENT_NOT_FOUND</code>。完整状态列表见<a href="#appendix-states">状态机</a>。</p>
+  </div>
+</section>
+
+<!-- ============ list_trade_intents ============ -->
+<section class="section" id="list_trade_intents">
+  <span class="eyebrow">交易生命周期</span>
+  <h2>list_trade_intents</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>list_trade_intents</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">按稳定序号顺序列出持久化的意图，适合做增量轮询。返回的是摘要——<b>不含</b> <code class="inl">payload</code>，需要完整命令请用 <code class="inl">get_trade_intent</code>。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>status</code></td><td><span class="ty">string | string[]</span></td><td><span class="opt">可选</span></td><td>按状态过滤。</td></tr>
+        <tr><td><code>after_seq</code></td><td><span class="ty">integer</span></td><td><span class="opt">可选</span></td><td>≥ 0，游标。配合 <code>seq</code> 做增量拉取。</td></tr>
+        <tr><td><code>limit</code></td><td><span class="ty">integer</span></td><td><span class="opt">可选</span></td><td>1–500，默认 100。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">查未决意图</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "list_trade_intents",
+  "params": {
+    "status": ["SUBMIT_UNKNOWN", "QUEUED"],
+    "after_seq": 0,
+    "limit": 50
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 数组</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">[
+  {
+    "seq": 128,
+    "intent_id": "intent_7c2a",
+    "intent_revision": 1,
+    "preview_id": "preview_5c8e",
+    "client_order_key": "cok_9d31",
+    "account_alias": "main_stock",
+    "status": "QUEUED",
+    "action": "BUY",
+    "symbol": "601398.SH",
+    "requested_volume": 500,
+    "limit_price": 7.05,
+    "execution_mode": "OBSERVE_ONLY",
+    "created_at": "2026-09-01T02:20:09.800Z",
+    "updated_at": "2026-09-01T02:20:09.800Z"
+  }
+]</pre>
+      </div>
+    </div>
+
+    <div class="note">
+      <p><strong>排查 SUBMIT_UNKNOWN 的标准手法。</strong>先用 <code class="inl">status:"SUBMIT_UNKNOWN"</code> 列出全部未决意图，逐个用 <code class="inl">get_trade_intent</code> 看关联的委托；确认后再在 QMT 里人工核对。这个计数大于 0 时，<code class="inl">LIMITED_AUTO</code> 的新订单会被拒绝。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 人工实盘授权 ============ -->
+<section class="section" id="authorize_manual_trade">
+  <span class="eyebrow">人工实盘授权</span>
+  <h2>authorize_manual_trade</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>authorize_manual_trade</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-del">RISK</span>
+      <span class="tag risk">destructiveHint</span>
+    </div>
+    <p class="ep-desc">为一个<b>准确、未过期、且最新硬风控仍通过</b>的 <code class="inl">MANUAL_LIVE</code> 预览开启短时 LIVE 窗口，创建一次性审批，并返回可直接交给 <code class="inl">submit_trade_intent</code> 的 <code class="inl">approval_context</code>。</p>
+
+    <div class="note danger">
+      <p><strong>调用前置条件（缺一不可）。</strong>① 操作者已<b>从本机</b>把 Worker 和 QMT Adapter 切到 <code class="inl">MANUAL_LIVE</code>；② 已向用户展示预览的账户别名、证券、方向、最终数量、最终限价、名义金额、价格保护调整与风险结果；③ 已取得用户对<b>这一笔</b>预览的明确确认。MCP 无法替你切换模式。</p>
+    </div>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>preview_id</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>必须是 <code>MANUAL_LIVE</code> 预览。</td></tr>
+        <tr><td><code>live_minutes</code></td><td><span class="ty">integer</span></td><td><span class="opt">可选</span></td><td>1–60，默认 10。LIVE 窗口时长。</td></tr>
+        <tr><td><code>approval_ttl_seconds</code></td><td><span class="ty">integer</span></td><td><span class="opt">可选</span></td><td>1–300，默认 30。审批有效期，并会被预览到期时间截断。</td></tr>
+        <tr><td><code>reason</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>1–200 字符，写入审计日志。</td></tr>
+        <tr><td><code>confirm</code></td><td><span class="ty">enum</span></td><td><span class="req">必填</span></td><td>必须<b>严格等于</b> <code>AUTHORIZE-MANUAL-TRADE</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "authorize_manual_trade",
+  "params": {
+    "preview_id": "preview_5c8e",
+    "live_minutes": 10,
+    "approval_ttl_seconds": 30,
+    "reason": "用户已在 WorkBuddy 核对账户、证券、数量和限价",
+    "confirm": "AUTHORIZE-MANUAL-TRADE"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "account_alias": "main_stock",
+  "preview_id": "preview_5c8e",
+  "approval_id": "approval_1d90",
+  "approval_context": { "local_approval_id": "approval_1d90" },
+  "approval_expires_at": "2026-09-01T02:20:39.900Z",
+  "live_until": "2026-09-01T02:30:09.900Z",
+  "authorized_by": "mcp"
+}</pre>
+      </div>
+    </div>
+
+    <h4>拒绝场景</h4>
+    <ul class="plain">
+      <li><code class="inl">LOCAL_CONFIRMATION_REQUIRED</code> — 确认词不匹配。</li>
+      <li><code class="inl">PREVIEW_NOT_FOUND</code> / <code class="inl">PREVIEW_EXPIRED</code> / <code class="inl">PREVIEW_ALREADY_CONSUMED</code>。</li>
+      <li><code class="inl">LIVE_NOT_ENABLED</code> — 预览模式不是 <code class="inl">MANUAL_LIVE</code>、Worker 不在该模式、或已熔断。</li>
+      <li><code class="inl">RISK_REJECTED</code> — 授权时会用当前数据<b>重算一次</b>硬风控；指纹变化（<code class="inl">SNAPSHOT_CHANGED</code>）或风控不通过都会拒绝。</li>
+    </ul>
+
+    <p>若该账户已存在有效时间授权，<code class="inl">live_until</code> 会取两者中<b>较晚</b>的那个，不会被缩短。</p>
+  </div>
+</section>
+
+<section class="section" id="authorize_manual_session">
+  <span class="eyebrow">人工实盘授权</span>
+  <h2>authorize_manual_session</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>authorize_manual_session</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-del">RISK</span>
+      <span class="tag risk">destructiveHint</span>
+    </div>
+    <p class="ep-desc">为已处于 <code class="inl">MANUAL_LIVE</code> 的账户开启 1–60 分钟的<b>时间授权</b>。有效期内<b>订单笔数不设上限</b>，<code class="inl">submit_trade_intent</code> 不再要求逐笔传入 <code class="inl">approval_context</code>。</p>
+
+    <div class="note danger">
+      <p><strong>不限笔数 ≠ 绕过交易流程。</strong>每一笔订单仍必须分别走完「<code class="inl">request_sync</code> → <code class="inl">preview_trade</code> → <code class="inl">submit_trade_intent</code>」，提交时仍复算最新硬风控并比对风险决策指纹。预览过期、风险输入变化、额度超限、模式变化或熔断，一律拒绝。</p>
+    </div>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+        <tr><td><code>minutes</code></td><td><span class="ty">integer</span></td><td><span class="opt">可选</span></td><td>1–60，默认 10。</td></tr>
+        <tr><td><code>reason</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>1–200 字符。</td></tr>
+        <tr><td><code>confirm</code></td><td><span class="ty">enum</span></td><td><span class="req">必填</span></td><td>必须<b>严格等于</b> <code>AUTHORIZE-TIMED-MANUAL-TRADING</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "authorize_manual_session",
+  "params": {
+    "account_alias": "main_stock",
+    "minutes": 10,
+    "reason": "用户确认未来 10 分钟允许 WorkBuddy 按策略连续下单",
+    "confirm": "AUTHORIZE-TIMED-MANUAL-TRADING"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "account_alias": "main_stock",
+  "session_id": "manual_session_4e11",
+  "expires_at": "2026-09-01T02:30:00.000Z",
+  "minutes": 10,
+  "unlimited_orders": true,
+  "still_requires_preview_and_risk_check": true,
+  "authorized_by": "mcp"
+}</pre>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <p><strong>调用前必须让用户看到三件事：</strong>准确的账户别名、持续时间、以及"期间订单笔数不设上限"这一提示，并取得明确确认。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="get_manual_authorization_status">
+  <span class="eyebrow">人工实盘授权</span>
+  <h2>get_manual_authorization_status</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_manual_authorization_status</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">查询账户的时间授权剩余秒数、LIVE 窗口与未使用逐笔审批数。用于向用户展示"还剩多久"以及在提交前自检。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_manual_authorization_status",
+  "params": { "account_alias": "main_stock" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "account_alias": "main_stock",
+  "mode": "MANUAL_LIVE",
+  "halted": false,
+  "timed_session_active": true,
+  "timed_session": {
+    "session_id": "manual_session_4e11",
+    "account_alias": "main_stock",
+    "authorized_by": "mcp",
+    "reason": "用户确认未来 10 分钟允许 WorkBuddy 按策略连续下单",
+    "created_at": "2026-09-01T02:20:00.000Z",
+    "expires_at": "2026-09-01T02:30:00.000Z",
+    "unlimited_orders": true,
+    "still_requires_preview_and_risk_check": true
+  },
+  "remaining_seconds": 486,
+  "live_until": "2026-09-01T02:30:00.000Z",
+  "active_single_trade_approvals": 1
+}</pre>
+      </div>
+    </div>
+
+    <p><code class="inl">timed_session_active</code> 为 <code class="inl">true</code> 需要同时满足：存在未过期会话、LIVE 窗口未关闭、未熔断、且模式为 <code class="inl">MANUAL_LIVE</code>。任一不满足即为 <code class="inl">false</code>，且 <code class="inl">timed_session</code> 返回 <code class="inl">null</code>。</p>
+  </div>
+</section>
+
+<section class="section" id="revoke_manual_session">
+  <span class="eyebrow">人工实盘授权</span>
+  <h2>revoke_manual_session</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>revoke_manual_session</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-put">WRITE</span>
+    </div>
+    <p class="ep-desc">立即撤销账户的时间授权。<b>同时终止 LIVE 窗口</b>，并使该账户尚未使用的逐笔审批一起过期。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "revoke_manual_session",
+  "params": {
+    "account_alias": "main_stock",
+    "reason": "用户要求停止连续下单",
+    "confirm": "REVOKE-TIMED-MANUAL-TRADING"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "account_alias": "main_stock",
+  "revoked_session_id": "manual_session_4e11",
+  "timed_session_active": false,
+  "expired_single_trade_approvals": 2,
+  "revoked_by": "mcp"
+}</pre>
+      </div>
+    </div>
+
+    <ul class="plain">
+      <li>切换运行模式或调用 <code class="inl">halt_trading</code> 也会<b>立即使所有时间授权失效</b>。</li>
+      <li>解除熔断后<b>不会</b>自动恢复时间授权，必须重新授权。</li>
+      <li>撤销<b>不会</b>撤销已经提交给柜台的委托——需要撤单请用 <code class="inl">cancel_order</code>。</li>
+      <li>确认词必须严格等于 <code class="inl">REVOKE-TIMED-MANUAL-TRADING</code>。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ P1 有限自动 ============ -->
+<section class="section" id="check_limited_auto_readiness">
+  <span class="eyebrow">有限自动交易 P1</span>
+  <h2>check_limited_auto_readiness</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>check_limited_auto_readiness</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-put">WRITE</span>
+      <span class="tag ok">永不报单</span>
+    </div>
+    <p class="ep-desc">为单个账户跑失败关闭的 P1 readiness 与对账检查。会扫描队列、终结对账证据，并报告模式、Adapter 心跳、快照、死信与 <code class="inl">SUBMIT_UNKNOWN</code> 阻塞项。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "check_limited_auto_readiness",
+  "params": { "account_alias": "main_stock" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 未就绪</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "account_alias": "main_stock",
+  "ready": false,
+  "reasons": [
+    "AUTO_ADAPTER_MODE_MISMATCH",
+    "AUTO_ACCOUNT_SNAPSHOT_STALE"
+  ],
+  "scan_error_type": null,
+  "reconciliation_run_id": "reconcile_3f81"
+}</pre>
+      </div>
+    </div>
+
+    <h4>readiness 阻塞项</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>原因码</th><th>含义</th><th>排除方式</th></tr></thead>
+      <tbody>
+        <tr><td><code>AUTO_ADAPTER_NOT_READY</code></td><td>Adapter 离线或心跳超龄（&gt; 15 秒）。</td><td>确认 QMT 已登录、策略实例在运行。</td></tr>
+        <tr><td><code>AUTO_ADAPTER_MODE_MISMATCH</code></td><td>Adapter 的 <code>qmt_mode</code> 与 Worker 不一致。</td><td>同步 <code>qmt_adapter.json</code> 后重启策略。</td></tr>
+        <tr><td><code>AUTO_ADAPTER_LOCALLY_HALTED</code></td><td>Adapter 侧本地熔断。</td><td>本机控制台 <code>clear-halt</code>。</td></tr>
+        <tr><td><code>AUTO_ADAPTER_LOCALLY_PAUSED</code></td><td>许可已在本地暂停。</td><td>用 <code>resume_limited_auto</code> 恢复（创建许可时会忽略此项）。</td></tr>
+        <tr><td><code>AUTO_DEAD_LETTER_PRESENT</code></td><td>存在死信消息。</td><td><b>死信始终要求暂停</b>，必须人工清理。</td></tr>
+        <tr><td><code>AUTO_QUEUE_BACKLOG</code></td><td>待处理队列超过 <code>auto_max_queue_depth</code>（默认 20）。</td><td>等待队列消化或排查 Adapter。</td></tr>
+        <tr><td><code>AUTO_SUBMIT_UNKNOWN_PRESENT</code></td><td>存在未决 <code>SUBMIT_UNKNOWN</code>。</td><td>人工核对后清理。</td></tr>
+        <tr><td><code>AUTO_ACCOUNT_SNAPSHOT_STALE</code></td><td>账户快照过期。</td><td><code>request_sync</code> 刷新 ACCOUNT。</td></tr>
+        <tr><td><code>AUTO_POSITION_SNAPSHOT_STALE</code></td><td>持仓快照过期。</td><td><code>request_sync</code> 刷新 POSITION。</td></tr>
+        <tr><td><code>AUTO_ACCOUNT_DRAWDOWN_EXCEEDED</code></td><td>账户回撤超过许可上限。</td><td>只能创建新许可。</td></tr>
+        <tr><td><code>AUTO_CONSECUTIVE_FAILURE_LIMIT</code></td><td>连续失败达上限。</td><td>必须修正规则并更新 <code>rule_version</code>，<b>不能恢复</b>。</td></tr>
+        <tr><td><code>AUTO_RECONCILIATION_SCAN_FAILED</code></td><td>对账扫描本身抛异常。</td><td><code>scan_error_type</code> 给出异常类名。</td></tr>
+      </tbody>
+    </table></div>
+
+    <p>每次调用都会写入一条 <code class="inl">reconciliation_runs</code> 记录，可据此追溯历史。调用本身也会<b>主动暂停</b>存在阻塞项的活动许可。</p>
+  </div>
+</section>
+
+<section class="section" id="authorize_limited_auto">
+  <span class="eyebrow">有限自动交易 P1</span>
+  <h2>authorize_limited_auto</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>authorize_limited_auto</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-del">RISK</span>
+      <span class="tag risk">destructiveHint</span>
+    </div>
+    <p class="ep-desc">创建一个<b>仅当日有效</b>的 P1 自动下单许可。许可绑定账户、标的、动作、sizing 类型、策略版本、交易时段，以及订单/金额/频率/并发/持仓/回撤/连续失败共七类额度。</p>
+
+    <div class="note danger">
+      <p><strong>调用前必须向用户展示完整范围与全部上限，并取得明确确认。</strong>Worker 与 Adapter 必须已经处于 <code class="inl">LIMITED_AUTO</code> 且健康——本方法<b>不会</b>替你切模式。</p>
+    </div>
+
+    <h4>必填参数</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td>账户别名。</td></tr>
+        <tr><td><code>symbols</code></td><td><span class="ty">string[]</span></td><td>1–100 个，去重后不允许重复；必须落在账户白名单内。</td></tr>
+        <tr><td><code>actions</code></td><td><span class="ty">string[]</span></td><td>非空且唯一。普通账户：<code>BUY</code>/<code>SELL</code>。信用账户：六种显式动作。</td></tr>
+        <tr><td><code>source_type</code></td><td><span class="ty">string</span></td><td>1–100 字符。后续每笔订单的 <code>source.type</code> 必须逐字一致。</td></tr>
+        <tr><td><code>rule_set_id</code></td><td><span class="ty">string</span></td><td>1–100 字符，策略集标识。</td></tr>
+        <tr><td><code>rule_version</code></td><td><span class="ty">string</span></td><td>1–100 字符，策略版本。连续失败后靠升版重建许可。</td></tr>
+        <tr><td><code>max_order_notional</code></td><td><span class="ty">number</span></td><td>单笔金额上限，且 ≤ 账户 <code>max_order_notional</code>。</td></tr>
+        <tr><td><code>max_order_volume</code></td><td><span class="ty">integer</span></td><td>单笔股数上限，且 ≤ 账户 <code>max_order_volume</code>。</td></tr>
+        <tr><td><code>max_session_notional</code></td><td><span class="ty">number</span></td><td>许可累计金额上限，≤ <code>max_auto_session_notional</code> 与 <code>max_daily_notional</code> 的较小值，且 ≥ 单笔上限。</td></tr>
+        <tr><td><code>max_orders</code></td><td><span class="ty">integer</span></td><td>订单数上限，≤ 账户 <code>max_auto_orders</code>。</td></tr>
+        <tr><td><code>max_concurrent_orders</code></td><td><span class="ty">integer</span></td><td>并发委托上限，≤ 账户 <code>max_auto_concurrent_orders</code>。</td></tr>
+        <tr><td><code>max_symbol_position_notional</code></td><td><span class="ty">number</span></td><td>单标的持仓市值上限。</td></tr>
+        <tr><td><code>max_account_drawdown</code></td><td><span class="ty">number</span></td><td>相对许可创建时总资产的最大回撤金额。</td></tr>
+        <tr><td><code>reason</code></td><td><span class="ty">string</span></td><td>1–500 字符。</td></tr>
+        <tr><td><code>confirm</code></td><td><span class="ty">enum</span></td><td>必须严格等于 <code>AUTHORIZE-LIMITED-AUTO-P1</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>可选参数</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>默认</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>minutes</code></td><td><span class="ty">integer</span></td><td><span class="ty">480</span></td><td>1–720，且 ≤ <code>max_auto_authorization_minutes</code>。<b>实际到期会截断到当天 15:00</b>，不能跨交易日。</td></tr>
+        <tr><td><code>min_order_interval_seconds</code></td><td><span class="ty">integer</span></td><td><span class="ty">1</span></td><td>1–3600。只能比账户配置<b>更慢</b>，不能更快。</td></tr>
+        <tr><td><code>max_consecutive_failures</code></td><td><span class="ty">integer</span></td><td><span class="ty">3</span></td><td>1–100。达到后许可暂停且<b>不可恢复</b>。</td></tr>
+        <tr><td><code>trading_windows</code></td><td><span class="ty">object[]</span></td><td><span class="ty">09:30–11:30 / 13:00–15:00</span></td><td>1–8 个窗口，<code>HH:MM</code>；必须有序、不重叠、落在 09:15–15:00 内。</td></tr>
+        <tr><td><code>allowed_sizing_types</code></td><td><span class="ty">string[]</span></td><td><span class="ty">全部 5 种</span></td><td>信用账户默认仅 <code>FIXED_VOLUME</code>/<code>FIXED_NOTIONAL</code>/<code>AVAILABLE_CASH_PERCENT</code>。</td></tr>
+        <tr><td><code>allow_credit_new_debt</code></td><td><span class="ty">boolean</span></td><td><span class="ty">false</span></td><td>含 <code>MARGIN_BUY</code> 或 <code>SHORT_SELL</code> 时必须显式设为 <code>true</code>。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">完整授权示例</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "authorize_limited_auto",
+  "params": {
+    "account_alias": "main_stock",
+    "symbols": ["600000.SH", "000001.SZ"],
+    "actions": ["BUY", "SELL"],
+    "source_type": "intraday_monitor",
+    "rule_set_id": "breakout-monitor",
+    "rule_version": "2026-09-01-v1",
+    "minutes": 480,
+    "max_order_notional": 50000,
+    "max_order_volume": 5000,
+    "max_session_notional": 300000,
+    "max_orders": 30,
+    "min_order_interval_seconds": 10,
+    "max_concurrent_orders": 2,
+    "max_symbol_position_notional": 200000,
+    "max_account_drawdown": 20000,
+    "max_consecutive_failures": 2,
+    "trading_windows": [
+      { "start": "09:30", "end": "11:30" },
+      { "start": "13:00", "end": "15:00" }
+    ],
+    "allowed_sizing_types": ["FIXED_VOLUME", "FIXED_NOTIONAL"],
+    "allow_credit_new_debt": false,
+    "reason": "用户确认当日盘中监控策略及全部额度",
+    "confirm": "AUTHORIZE-LIMITED-AUTO-P1"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 许可状态</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "configured": true,
+  "active": true,
+  "status": "ACTIVE",
+  "permit_id": "auto_permit_71ba",
+  "policy_hash": "e3b0c442...",
+  "generation": 1,
+  "starts_at": "2026-09-01T01:30:00.000Z",
+  "expires_at": "2026-09-01T07:00:00.000Z",
+  "remaining_seconds": 16800,
+  "pause_reason": null,
+  "revoked_reason": null,
+  "policy": {
+    "policy_version": 1,
+    "permit_id": "auto_permit_71ba",
+    "generation": 1,
+    "account_alias": "main_stock",
+    "account_type": "STOCK",
+    "trading_day": "20260901",
+    "timezone": "Asia/Shanghai",
+    "trading_windows": [
+      { "start": "09:30", "end": "11:30" },
+      { "start": "13:00", "end": "15:00" }
+    ],
+    "allowed_symbols": ["000001.SZ", "600000.SH"],
+    "allowed_actions": ["BUY", "SELL"],
+    "allowed_sizing_types": ["FIXED_NOTIONAL", "FIXED_VOLUME"],
+    "source": {
+      "type": "intraday_monitor",
+      "rule_set_id": "breakout-monitor",
+      "rule_version": "2026-09-01-v1"
+    },
+    "max_order_notional": 50000.0,
+    "max_order_volume": 5000,
+    "max_session_notional": 300000.0,
+    "max_orders": 30,
+    "min_order_interval_seconds": 10,
+    "max_concurrent_orders": 2,
+    "max_symbol_position_notional": 200000.0,
+    "max_account_drawdown": 20000.0,
+    "max_consecutive_failures": 2,
+    "baseline_total_asset": 988523.46,
+    "allow_credit_new_debt": false,
+    "starts_at": "2026-09-01T01:30:00.000Z",
+    "expires_at": "2026-09-01T07:00:00.000Z"
+  },
+  "usage": { "order_count": 0, "notional": 0.0 },
+  "remaining_orders": 30,
+  "remaining_notional": 300000.0,
+  "health_reasons": []
+}</pre>
+      </div>
+    </div>
+
+    <div class="note">
+      <p><strong>480 分钟的用意。</strong>默认授权一次即可覆盖完整交易日，不需要每 60 分钟重新授权。但午休、收盘、周末和许可外时段<b>仍然不能</b>产生新自动订单——时段窗口是独立硬约束。</p>
+    </div>
+
+    <div class="note warn">
+      <p><strong>每个账户同时只允许一个活动许可。</strong>创建新许可会把旧的置为 <code class="inl">REVOKED</code>（<code class="inl">revoked_reason = "superseded by a new permit"</code>）。需要并行多策略时，应使用不同的、独立验收的账户别名与 Adapter 实例，<b>不能共享额度</b>。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="get_limited_auto_status">
+  <span class="eyebrow">有限自动交易 P1</span>
+  <h2>get_limited_auto_status</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>get_limited_auto_status</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">返回最新的 P1 许可、完整策略、剩余时间/订单数/金额、暂停原因与当前健康阻塞项。这是自动交易循环里的常规轮询点。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "get_limited_auto_status",
+  "params": { "account_alias": "main_stock" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 已暂停</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "configured": true,
+  "active": false,
+  "status": "PAUSED",
+  "permit_id": "auto_permit_71ba",
+  "policy_hash": "e3b0c442...",
+  "generation": 1,
+  "starts_at": "2026-09-01T01:30:00.000Z",
+  "expires_at": "2026-09-01T07:00:00.000Z",
+  "remaining_seconds": 9600,
+  "pause_reason": "AUTO_SUBMIT_UNKNOWN_PRESENT",
+  "revoked_reason": null,
+  "policy": { "...": "完整策略" },
+  "usage": { "order_count": 4, "notional": 128400.0 },
+  "remaining_orders": 26,
+  "remaining_notional": 171600.0,
+  "health_reasons": ["AUTO_SUBMIT_UNKNOWN_PRESENT"]
+}</pre>
+      </div>
+    </div>
+
+    <h4>status 取值</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>状态</th><th>含义</th><th>可提交新订单</th></tr></thead>
+      <tbody>
+        <tr><td><code>NONE</code></td><td>从未创建过许可（<code>configured:false</code>）。</td><td>否</td></tr>
+        <tr><td><code>ACTIVE</code></td><td>许可有效、未暂停、代次匹配、模式正确、未熔断。</td><td>是</td></tr>
+        <tr><td><code>PAUSED</code></td><td>被健康守卫暂停，需显式恢复。</td><td>否</td></tr>
+        <tr><td><code>EXPIRED</code></td><td>剩余秒数归零（跨日或过 15:00）。</td><td>否</td></tr>
+        <tr><td><code>REVOKED</code></td><td>已撤销，或被新许可取代。</td><td>否</td></tr>
+        <tr><td><code>INVALID</code></td><td>策略 JSON 解析失败。</td><td>否</td></tr>
+      </tbody>
+    </table></div>
+
+    <p><code class="inl">active:true</code> 的判定是<b>五个条件同时成立</b>：记录状态为 <code class="inl">ACTIVE</code>、剩余时间 &gt; 0、<code class="inl">generation</code> 与当前代次一致、Worker 模式为 <code class="inl">LIMITED_AUTO</code>、未熔断。</p>
+  </div>
+</section>
+
+<section class="section" id="resume_limited_auto">
+  <span class="eyebrow">有限自动交易 P1</span>
+  <h2>resume_limited_auto</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>resume_limited_auto</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-del">RISK</span>
+    </div>
+    <p class="ep-desc">在 readiness 恢复后，显式恢复被健康守卫暂停的许可。<b>同时轮换授权代次</b>，使暂停前签发的旧命令继续无效。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "resume_limited_auto",
+  "params": {
+    "account_alias": "main_stock",
+    "reason": "SUBMIT_UNKNOWN 已人工核对并清理，快照已重新同步",
+    "confirm": "RESUME-LIMITED-AUTO-P1"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data · 代次已 +1</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "configured": true,
+  "active": true,
+  "status": "ACTIVE",
+  "permit_id": "auto_permit_71ba",
+  "policy_hash": "c7f1a9d2...",
+  "generation": 2,
+  "remaining_seconds": 9500,
+  "pause_reason": null,
+  "policy": {
+    "generation": 2,
+    "resumed_at": "2026-09-01T04:12:00.000Z",
+    "...": "其余策略字段不变"
+  },
+  "usage": { "order_count": 4, "notional": 128400.0 },
+  "remaining_orders": 26,
+  "remaining_notional": 171600.0,
+  "health_reasons": []
+}</pre>
+      </div>
+    </div>
+
+    <div class="note danger">
+      <p><strong>连续失败达上限时不能恢复。</strong>若 <code class="inl">pause_reason</code> 含 <code class="inl">AUTO_CONSECUTIVE_FAILURE_LIMIT</code>，本方法返回 <code class="inl">AUTO_STRATEGY_REAUTHORIZATION_REQUIRED</code>。必须修正规则、更新 <code class="inl">rule_version</code> 并创建<b>新</b>许可——这是刻意的设计，防止坏策略自我复活。</p>
+    </div>
+
+    <p>恢复流程标准顺序：<b>排除原因</b> → <code class="inl">request_sync</code> 重新同步 → <code class="inl">check_limited_auto_readiness</code> 确认 <code class="inl">ready:true</code> → <code class="inl">resume_limited_auto</code>。系统<b>不会</b>静默自动恢复。</p>
+  </div>
+</section>
+
+<section class="section" id="revoke_limited_auto">
+  <span class="eyebrow">有限自动交易 P1</span>
+  <h2>revoke_limited_auto</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>revoke_limited_auto</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-put">WRITE</span>
+    </div>
+    <p class="ep-desc">立即撤销活动或已暂停的许可，并轮换其授权代次。</p>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "revoke_limited_auto",
+  "params": {
+    "account_alias": "main_stock",
+    "reason": "用户要求立即停止当日自动交易",
+    "confirm": "REVOKE-LIMITED-AUTO-P1"
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "account_alias": "main_stock",
+  "revoked_permit_id": "auto_permit_71ba",
+  "active": false
+}</pre>
+      </div>
+    </div>
+
+    <div class="note danger">
+      <p><strong>撤销不会自动撤销已提交给柜台的委托。</strong>需要平仓或撤单，请另行用 <code class="inl">cancel_order</code> 逐张处理。</p>
+    </div>
+
+    <p>切换模式、触发熔断、跨日，都会使许可失效。撤销后如需继续自动交易，必须重新走 readiness + 授权流程。</p>
+  </div>
+</section>
+
+<!-- ============ request_sync ============ -->
+<section class="section" id="request_sync">
+  <span class="eyebrow">同步与熔断</span>
+  <h2>request_sync</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>request_sync</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-put">WRITE</span>
+      <span class="tag ok">永不报单</span>
+    </div>
+    <p class="ep-desc">请求 Adapter 拉取全新快照。这是<b>所有交易流程的第一步</b>：<code class="inl">QUOTE</code> 域会同时取得涨跌停、最小价位、盘口基准与动态价格笼子。</p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>account_alias</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>账户别名。</td></tr>
+        <tr><td><code>scopes</code></td><td><span class="ty">string[]</span></td><td><span class="req">必填</span></td><td>非空去重，取值见下表。</td></tr>
+        <tr><td><code>symbols</code></td><td><span class="ty">string[]</span></td><td><span class="req">条件</span></td><td>含 <code>QUOTE</code> 时必填，1–100 个；不含 <code>QUOTE</code> 时<b>禁止</b>传。</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>scopes 取值</h4>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Scope</th><th>拉取内容</th><th>对应查询方法</th></tr></thead>
+      <tbody>
+        <tr><td><code>ACCOUNT</code></td><td>账户资产快照</td><td><code>get_account_snapshot</code></td></tr>
+        <tr><td><code>POSITION</code></td><td>持仓快照</td><td><code>get_positions</code></td></tr>
+        <tr><td><code>ORDER</code></td><td>委托记录</td><td><code>get_orders</code></td></tr>
+        <tr><td><code>DEAL</code></td><td>成交记录</td><td><code>get_trades</code></td></tr>
+        <tr><td><code>QUOTE</code></td><td>行情 + 涨跌停 + 最小价位 + 价格笼子</td><td><code>get_quote_snapshot</code></td></tr>
+        <tr><td><code>CREDIT_ACCOUNT</code></td><td>信用资产与维持担保比例</td><td><code>get_credit_account_snapshot</code></td></tr>
+        <tr><td><code>CREDIT_DEBT</code></td><td>信用负债合约</td><td><code>get_credit_debt_contracts</code></td></tr>
+        <tr><td><code>CREDIT_ELIGIBILITY</code></td><td>标的两融资格</td><td><code>get_credit_instrument_eligibility</code></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">交易前标准同步</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "request_sync",
+  "params": {
+    "account_alias": "main_stock",
+    "scopes": ["ACCOUNT", "POSITION", "ORDER", "QUOTE"],
+    "symbols": ["601398.SH"]
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "message_id": "msg_31ad",
+  "status": "DELIVERED",
+  "command_type": "REQUEST_SYNC"
+}</pre>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <p><strong>返回 <code class="inl">DELIVERED</code> 只表示命令已入队。</strong>快照写入需要一点时间。正确做法是轮询 <code class="inl">qmt_health</code> 看 <code class="inl">account_snapshot_age_seconds</code> 回落，或直接调用对应查询方法检查 <code class="inl">age_seconds</code>，再进入 <code class="inl">preview_trade</code>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ halt_trading ============ -->
+<section class="section" id="halt_trading">
+  <span class="eyebrow">同步与熔断</span>
+  <h2>halt_trading</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>halt_trading</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-del">RISK</span>
+      <span class="tag risk">destructiveHint</span>
+    </div>
+    <p class="ep-desc">远程失败关闭：立即停止所有新交易。<b>只能由本机控制台清除。</b></p>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>reason</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>1–500 字符，写入审计与 Adapter 熔断文件。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">params</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "halt_trading",
+  "params": { "reason": "行情源异常，暂停全部交易" }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "mode": "MANUAL_LIVE",
+  "halted": true,
+  "reason": "行情源异常，暂停全部交易",
+  "clearing_requires_local_console": true
+}</pre>
+      </div>
+    </div>
+
+    <h4>熔断时一次性完成的事</h4>
+    <ul class="plain">
+      <li>删除<b>所有</b>账户的时间授权会话（<code class="inl">manual_session:*</code>）。</li>
+      <li>把所有账户的 <code class="inl">live_until</code> 设为当前时刻，LIVE 窗口立即关闭。</li>
+      <li>使所有未使用的逐笔审批过期。</li>
+      <li>把全部 <code class="inl">ACTIVE</code>/<code class="inl">PAUSED</code> 的 P1 许可置为 <code class="inl">REVOKED</code>，原因为 <code class="inl">global trading halt</code>。</li>
+      <li>轮换所有账户的授权代次。</li>
+      <li>向每个 Adapter 运行时写入一条<b>长效</b>熔断文件（TTL 十年，刻意如此）。</li>
+    </ul>
+
+    <div class="codegrid">
+      <div class="card">
+        <div class="card-head"><span class="lbl">PowerShell</span><span class="fn">清除熔断（仅本机控制台）</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="powershell">python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" clear-halt --reason "已排除的具体原因" --confirm CLEAR-HALT</pre>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <p><strong>桥接处于熔断时会拒绝直接改模式。</strong>必须先 <code class="inl">clear-halt</code>。解除熔断后模式<b>固定回到 <code class="inl">OBSERVE_ONLY</code></b>，且时间授权不会自动恢复——先让 Worker 和所有 Adapter 在观察模式下恢复正常，再考虑切换。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 附录：风控原因码 ============ -->
+<section class="section" id="appendix-risk">
+  <span class="eyebrow">附录</span>
+  <h2>风控原因码</h2>
+  <p>这些代码出现在 <code class="inl">preview_trade</code> 的 <code class="inl">risk.reasons</code> 数组与 <code class="inl">RISK_REJECTED</code> 错误的 <code class="inl">details.reasons</code> 中。<code class="inl">risk.allowed</code> 为 <code class="inl">true</code> 的<b>唯一条件</b>是这个数组为空。</p>
+
+  <h3>通用</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>原因码</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td><code>ACCOUNT_SNAPSHOT_STALE</code></td><td>账户快照缺失或超过 <code>max_snapshot_age_seconds</code>。</td></tr>
+      <tr><td><code>POSITION_SNAPSHOT_STALE</code></td><td>持仓快照缺失或超龄。</td></tr>
+      <tr><td><code>QUOTE_SNAPSHOT_STALE</code></td><td>行情快照缺失或超过 <code>max_quote_age_seconds</code>。</td></tr>
+      <tr><td><code>MARKET_DATA_STALE</code></td><td>行情不足以计算价格笼子或涨跌停。</td></tr>
+      <tr><td><code>PRICE_DEVIATION_EXCEEDED</code></td><td>价格偏离超过 <code>max_deviation_pct</code>。</td></tr>
+      <tr><td><code>INSTRUMENT_NOT_ALLOWED</code></td><td>标的不在账户白名单内。</td></tr>
+      <tr><td><code>ACTIVE_ORDER_CONFLICT</code></td><td>同标的存在活动委托。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>数量与资金</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>原因码</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td><code>ZERO_RESOLVED_VOLUME</code></td><td>推导出的数量为 0。</td></tr>
+      <tr><td><code>ZERO_BUY_VOLUME_NOT_ALLOWED</code></td><td>买入数量为 0（0 股委托一律禁止）。</td></tr>
+      <tr><td><code>ZERO_SELL_VOLUME_NOT_ALLOWED</code></td><td>卖出数量为 0。</td></tr>
+      <tr><td><code>MINIMUM_SELL_VOLUME_NOT_MET</code></td><td>卖出量低于最低卖出数量且不允许零股卖出。</td></tr>
+      <tr><td><code>INSUFFICIENT_AVAILABLE_CASH</code></td><td>可用资金不足。</td></tr>
+      <tr><td><code>INSUFFICIENT_AVAILABLE_VOLUME</code></td><td>可卖数量不足。</td></tr>
+      <tr><td><code>MAX_ORDER_NOTIONAL_EXCEEDED</code></td><td>超过单笔名义金额上限。</td></tr>
+      <tr><td><code>MAX_ORDER_VOLUME_EXCEEDED</code></td><td>超过单笔股数上限。</td></tr>
+      <tr><td><code>MAX_DAILY_NOTIONAL_EXCEEDED</code></td><td>当日累计（成交 + 活动意图 + 本笔）超过单日上限。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>信用专用</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>原因码</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td><code>CREDIT_SNAPSHOT_STALE</code></td><td>信用快照缺失或超龄。</td></tr>
+      <tr><td><code>CREDIT_RISK_LIMIT</code></td><td>维持担保比例低于下限，或负债/额度校验失败。</td></tr>
+      <tr><td><code>CREDIT_INSTRUMENT_NOT_ELIGIBLE</code></td><td>标的不具备该动作的资格。</td></tr>
+      <tr><td><code>CREDIT_CAPACITY_UNAVAILABLE</code></td><td>缺少动作所需的额度快照。</td></tr>
+      <tr><td><code>CREDIT_DEBT_NOT_FOUND</code></td><td>还款动作找不到对应负债合约。</td></tr>
+      <tr><td><code>CONFIGURED_CREDIT_ACTION_REJECTED</code></td><td>通用买卖映射到配置动作后被拒绝（不做第二次尝试）。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>P1 有限自动</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>原因码</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td><code>AUTO_PERMIT_REQUIRED</code></td><td>没有活动许可。</td></tr>
+      <tr><td><code>AUTO_PERMIT_EXPIRED</code></td><td>许可已过期。</td></tr>
+      <tr><td><code>AUTO_MODE_NOT_ENABLED</code></td><td>Worker 模式不是 <code>LIMITED_AUTO</code>。</td></tr>
+      <tr><td><code>AUTO_TRADING_HALTED</code></td><td>已熔断。</td></tr>
+      <tr><td><code>AUTO_POLICY_HASH_MISMATCH</code></td><td>策略哈希与许可不一致。</td></tr>
+      <tr><td><code>AUTO_POLICY_INVALID</code></td><td>策略 JSON 无法解析。</td></tr>
+      <tr><td><code>AUTO_POLICY_EXCEEDS_CURRENT_CONFIG</code></td><td>策略额度超出当前账户配置硬上限。</td></tr>
+      <tr><td><code>AUTO_SYMBOL_NOT_ALLOWED</code></td><td>标的不在许可允许列表内。</td></tr>
+      <tr><td><code>AUTO_ACTION_NOT_ALLOWED</code></td><td>动作不在许可允许列表内。</td></tr>
+      <tr><td><code>AUTO_SIZING_NOT_ALLOWED</code></td><td>sizing 类型不在许可允许列表内。</td></tr>
+      <tr><td><code>AUTO_STRATEGY_BINDING_MISMATCH</code></td><td><code>source.type</code> / <code>rule_set_id</code> / <code>rule_version</code> 与许可不一致。</td></tr>
+      <tr><td><code>AUTO_OUTSIDE_TRADING_WINDOW</code></td><td>当前时间不在许可交易时段内。</td></tr>
+      <tr><td><code>AUTO_ORDER_NOTIONAL_EXCEEDED</code></td><td>超过许可单笔金额上限。</td></tr>
+      <tr><td><code>AUTO_ORDER_VOLUME_EXCEEDED</code></td><td>超过许可单笔股数上限。</td></tr>
+      <tr><td><code>AUTO_SESSION_NOTIONAL_EXCEEDED</code></td><td>超过许可累计金额上限。</td></tr>
+      <tr><td><code>AUTO_ORDER_COUNT_EXCEEDED</code></td><td>超过许可订单数上限。</td></tr>
+      <tr><td><code>AUTO_ORDER_RATE_EXCEEDED</code></td><td>下单间隔短于 <code>min_order_interval_seconds</code>。</td></tr>
+      <tr><td><code>AUTO_CONCURRENT_ORDER_LIMIT</code></td><td>并发活动委托数超限。</td></tr>
+      <tr><td><code>AUTO_SYMBOL_POSITION_LIMIT</code></td><td>单标的持仓市值将超过上限。</td></tr>
+      <tr><td><code>AUTO_ACCOUNT_DRAWDOWN_EXCEEDED</code></td><td>账户回撤超过许可上限。</td></tr>
+      <tr><td><code>AUTO_CREDIT_NOT_ENABLED</code></td><td>信用账户未开启自动交易。</td></tr>
+      <tr><td><code>AUTO_CREDIT_NEW_DEBT_NOT_ALLOWED</code></td><td>新增负债动作未获显式许可。</td></tr>
+      <tr><td><code>AUTO_ADAPTER_NOT_READY</code></td><td>Adapter 离线或心跳超龄。</td></tr>
+      <tr><td><code>AUTO_ADAPTER_MODE_MISMATCH</code></td><td>Adapter 模式漂移。</td></tr>
+      <tr><td><code>AUTO_ADAPTER_LOCALLY_HALTED</code></td><td>Adapter 侧本地熔断。</td></tr>
+      <tr><td><code>AUTO_ADAPTER_LOCALLY_PAUSED</code></td><td>许可已在本地暂停。</td></tr>
+      <tr><td><code>AUTO_QUEUE_BACKLOG</code></td><td>队列积压超限。</td></tr>
+      <tr><td><code>AUTO_DEAD_LETTER_PRESENT</code></td><td>存在死信消息。</td></tr>
+      <tr><td><code>AUTO_SUBMIT_UNKNOWN_PRESENT</code></td><td>存在未决 <code>SUBMIT_UNKNOWN</code>。</td></tr>
+      <tr><td><code>AUTO_ACCOUNT_SNAPSHOT_STALE</code></td><td>账户快照对自动交易而言过旧。</td></tr>
+      <tr><td><code>AUTO_POSITION_SNAPSHOT_STALE</code></td><td>持仓快照对自动交易而言过旧。</td></tr>
+      <tr><td><code>AUTO_CONSECUTIVE_FAILURE_LIMIT</code></td><td>连续失败达上限（不可恢复）。</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <p><strong>哪些会暂停许可。</strong>只有 <code class="inl">AUTO_PAUSE_REASONS</code> 集合内的 10 项会触发暂停：Adapter 未就绪/模式漂移/本地熔断/本地暂停、死信、队列积压、<code class="inl">SUBMIT_UNKNOWN</code>、账户快照陈旧、持仓快照陈旧、账户回撤超限、连续失败超限。其余原因只拒绝当笔，不暂停许可。</p>
+  </div>
+</section>
+
+<!-- ============ 附录：状态机 ============ -->
+<section class="section" id="appendix-states">
+  <span class="eyebrow">附录</span>
+  <h2>状态机</h2>
+
+  <h3>交易意图状态</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>状态</th><th>类别</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td><code>QUEUED</code></td><td><span class="tag">进行中</span></td><td>已入队，等待 Adapter 取走。</td></tr>
+      <tr><td><code>SUBMIT_CALLED</code></td><td><span class="tag">进行中</span></td><td>Adapter 已调用 <code>passorder</code>，等待回执。</td></tr>
+      <tr><td><code>SUBMIT_UNKNOWN</code></td><td><span class="tag warn">需人工</span></td><td>提交结果未明。<b>系统不会自动重发</b>，且会阻止新自动订单。</td></tr>
+      <tr><td><code>ACCEPTED</code> / <code>PARTIALLY_FILLED</code></td><td><span class="tag">进行中</span></td><td>柜台已受理，等待成交。</td></tr>
+      <tr><td><code>FILLED</code></td><td><span class="tag ok">终态</span></td><td>全部成交。</td></tr>
+      <tr><td><code>CANCELLED</code> / <code>PARTIALLY_CANCELLED</code></td><td><span class="tag ok">终态</span></td><td>已撤销（含部分撤单）。</td></tr>
+      <tr><td><code>OBSERVE_ONLY_ACKNOWLEDGED</code></td><td><span class="tag ok">终态</span></td><td>观察模式下 Adapter 空跑并回 ACK，未报单。</td></tr>
+      <tr><td><code>RISK_REJECTED</code></td><td><span class="tag risk">终态</span></td><td>硬风控拒绝。</td></tr>
+      <tr><td><code>APPROVAL_REJECTED</code></td><td><span class="tag risk">终态</span></td><td>授权/审批未通过。</td></tr>
+      <tr><td><code>QMT_REJECTED</code></td><td><span class="tag risk">终态</span></td><td>QMT 侧拒绝。</td></tr>
+      <tr><td><code>BROKER_REJECTED</code></td><td><span class="tag risk">终态</span></td><td>柜台拒绝。</td></tr>
+      <tr><td><code>EXPIRED</code></td><td><span class="tag">终态</span></td><td>命令超过 <code>command_ttl_seconds</code> 未被取走。</td></tr>
+      <tr><td><code>PREVIEW_EXPIRED</code></td><td><span class="tag">终态</span></td><td>预览在提交前过期。</td></tr>
+      <tr><td><code>FAILED</code></td><td><span class="tag risk">终态</span></td><td>其他失败。</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <p><strong>计入 P1 连续失败的状态。</strong><code class="inl">QMT_REJECTED</code>、<code class="inl">BROKER_REJECTED</code>、<code class="inl">FAILED</code>、<code class="inl">SUBMIT_UNKNOWN</code> 四项。达到 <code class="inl">max_consecutive_failures</code> 后许可暂停且不可恢复。</p>
+  </div>
+
+  <h3>委托状态</h3>
+  <p><b>活动状态</b>（可用 <code class="inl">cancel_order</code> 撤销）：</p>
+  <div class="flow"><pre>QUEUED  REPORTED  ACCEPTED  ORDER_ACCEPTED  PARTIALLY_FILLED  CANCEL_REQUESTED  SUBMIT_CALLED</pre></div>
+  <p>其余状态（<code class="inl">FILLED</code>、<code class="inl">CANCELLED</code>、<code class="inl">REJECTED</code> 等）为终态，撤销会返回 <code class="inl">ORDER_NOT_CANCELLABLE</code>。活动委托同时构成新订单的 <code class="inl">ACTIVE_ORDER_CONFLICT</code> 校验输入。</p>
+
+  <h3>P1 许可状态流转</h3>
+  <div class="flow"><pre>  （无许可）NONE
+       │  authorize_limited_auto（需 ready）
+       ▼
+    ACTIVE ────── 健康守卫触发 ──────► PAUSED
+       │                                  │
+       │                                  │ check_limited_auto_readiness
+       │                                  │ + resume_limited_auto（代次 +1）
+       │◄─────────────────────────────────┘
+       │
+       ├── 剩余时间归零 / 跨日 ──────────► EXPIRED
+       ├── revoke_limited_auto ──────────► REVOKED
+       ├── 创建新许可（取代旧的）────────► REVOKED（superseded by a new permit）
+       ├── halt_trading ─────────────────► REVOKED（global trading halt）
+       └── 切换模式 ─────────────────────► 失效（active=false）
+  PAUSED 且 pause_reason 含 AUTO_CONSECUTIVE_FAILURE_LIMIT
+       └──► 不可恢复，必须更新 rule_version 后创建新许可</pre></div>
+</section>
+
+<!-- ============ 附录：配置参考 ============ -->
+<section class="section" id="appendix-config">
+  <span class="eyebrow">附录</span>
+  <h2>配置参考</h2>
+  <p>所有配置文件都位于本机运行目录，<b>不支持热重载</b>——修改后必须重启 Worker，涉及 Adapter 的还要重启 QMT 策略实例。</p>
+
+  <div class="flow"><pre>%LOCALAPPDATA%\WorkBuddyQMTBridge\runtime\
+├── config\
+│   └── bridge.json              Worker 全局、账户与风控参数
+├── data\
+│   ├── secrets\
+│   │   ├── message_keys.json    本机消息签名密钥（绝不外传）
+│   │   └── worker.token         Worker API 令牌（不写入 MCP 配置）
+│   └── state\
+│       └── bridge.db            状态库（改动前备份 WAL/SHM）
+├── qmt_ready\
+│   └── &lt;账户别名&gt;\
+│       ├── qmt_adapter.py       部署到大 QMT 的策略源码
+│       ├── qmt_adapter.json     Adapter 配置（含 qmt_mode）
+│       └── qmt_profile.json     签名 Profile（P0 后生成）
+└── logs\
+    └── data\logs\worker-YYYY-MM-DD.log</pre></div>
+
+  <h3>bridge.json · 全局</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>参数</th><th>默认值</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>data_dir</code></td><td><span class="ty">../data</span></td><td>数据库、队列、日志、运行状态目录。建议保留相对路径。</td></tr>
+      <tr><td><code>host</code></td><td><span class="ty">127.0.0.1</span></td><td>只接受数字形式的本机回环地址。</td></tr>
+      <tr><td><code>port</code></td><td><span class="ty">17642</span></td><td>1–65535。MCP 的 <code>--endpoint</code> 必须用同一端口。</td></tr>
+      <tr><td><code>default_mode</code></td><td><span class="ty">OBSERVE_ONLY</span></td><td><b>仅在数据库首次创建时</b>生效，不是当前模式。</td></tr>
+      <tr><td><code>max_message_bytes</code></td><td><span class="ty">65536</span></td><td>1024–16777216。生成的 Adapter 会同步此值。</td></tr>
+      <tr><td><code>key_file</code></td><td><span class="ty">../data/secrets/message_keys.json</span></td><td>本机消息签名密钥。</td></tr>
+      <tr><td><code>worker_token_file</code></td><td><span class="ty">../data/secrets/worker.token</span></td><td>Worker 令牌，长度不得小于 32。</td></tr>
+      <tr><td><code>accounts[]</code></td><td><span class="ty">array</span></td><td>账户配置，<code>alias</code> 与 <code>adapter_instance</code> 必须唯一。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>bridge.json · 每个账户</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>参数</th><th>默认值</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>alias</code></td><td><span class="ty">main_stock</span></td><td>只能用 ASCII 字母、数字、点、下划线、连字符。</td></tr>
+      <tr><td><code>account_type</code></td><td><span class="ty">STOCK</span></td><td><code>STOCK</code> 或 <code>CREDIT</code>。</td></tr>
+      <tr><td><code>adapter_instance</code></td><td><span class="ty">qmt_stock_01</span></td><td>所有账户之间不得重复。</td></tr>
+      <tr><td><code>enabled</code></td><td><span class="ty">STOCK:true / CREDIT:false</span></td><td>信用账户默认不启用。</td></tr>
+      <tr><td><code>lot_size</code></td><td><span class="ty">100</span></td><td>整手单位。</td></tr>
+      <tr><td><code>odd_lot_sell_allowed</code></td><td><span class="ty">true</span></td><td>尾数不足最低卖出量时允许一次全卖；但 0 股仍禁止。</td></tr>
+      <tr><td><code>instrument_allowlist</code></td><td><span class="ty">[]</span></td><td>空数组不额外限制；非空时只允许列出的代码。</td></tr>
+      <tr><td><code>limited_auto_credit_enabled</code></td><td><span class="ty">false</span></td><td>信用 P1 开关，需在 Bridge 与 Adapter 双侧开启。</td></tr>
+      <tr><td><code>credit_action_mapping</code></td><td><span class="ty">buy:MARGIN_BUY / sell:COLLATERAL_SELL</span></td><td>通用买卖的信用动作映射，不做第二次尝试。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>下单数量规则</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>适用证券</th><th>最低买入</th><th>最低卖出</th></tr></thead>
+    <tbody>
+      <tr><td>科创板 <code>688</code>、<code>689</code> 开头</td><td>200 股</td><td>200 股</td></tr>
+      <tr><td>其他证券（含创业板）</td><td>100 股</td><td>100 股</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>默认额度（百万级账户口径）</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>账户类型</th><th><code>max_order_notional</code></th><th><code>max_order_volume</code></th><th><code>max_daily_notional</code></th></tr></thead>
+    <tbody>
+      <tr><td>普通证券账户</td><td>200000 元</td><td>500000 股</td><td>2000000 元</td></tr>
+      <tr><td>信用账户</td><td>100000 元</td><td>500000 股</td><td>1000000 元</td></tr>
+    </tbody>
+  </table></div>
+  <p>两个股数/金额上限<b>同时校验</b>：即使股数未达 50 万股，只要名义金额超过对应单笔上限仍会拒绝。信用账户上限更低，用于覆盖两融的额外杠杆与负债风险。</p>
+
+  <h3>Profile 与 P0</h3>
+  <p>新环境生成的 <code class="inl">qmt_profile.json</code> 刻意保持 <code class="inl">verified=false</code> 且签名为空，<b>不能直接运行 <code class="inl">SIM_SIGNAL</code> 或 <code class="inl">MANUAL_LIVE</code></b>。完成目标电脑、目标 QMT 构建、目标柜台的 P0 后，需填写以下字段并同步：</p>
+  <ol class="plain">
+    <li>填 <code class="inl">profile_id</code>、<code class="inl">qmt_build</code>、<code class="inl">broker_build</code>、<code class="inl">mappings</code>，设 <code class="inl">verified=true</code>。</li>
+    <li>把前三个值<b>逐字</b>同步到 <code class="inl">qmt_adapter.json</code> 的 <code class="inl">expected_profile_id</code>、<code class="inl">expected_qmt_build</code>、<code class="inl">expected_broker_build</code>。</li>
+    <li>核对 <code class="inl">adapter_binding</code> 中的账户别名、账户类型、Adapter 实例、完整 QMT 账户号、策略名。</li>
+    <li>用<b>本机</b>密钥签名（见下）。</li>
+    <li>运行 <code class="inl">doctor</code> 确认全部通过。</li>
+  </ol>
+
+  <div class="codegrid cols-2">
+    <div class="card">
+      <div class="card-head"><span class="lbl">JSON</span><span class="fn">mappings · 普通股票限价买卖</span><span class="spacer"></span><button class="copy">复制</button></div>
+      <pre data-lang="json">{
+  "mappings": {
+    "STOCK:STOCK:BUY:LIMIT": {
+      "op_type": 23,
+      "order_type": 1101,
+      "price_type": 11
+    },
+    "STOCK:STOCK:SELL:LIMIT": {
+      "op_type": 24,
+      "order_type": 1101,
+      "price_type": 11
+    }
+  }
+}</pre>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="lbl">PowerShell</span><span class="fn">签名（必须是最后一步）</span><span class="spacer"></span><button class="copy">复制</button></div>
+      <pre data-lang="powershell">python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" sign-qmt-profile "&lt;runtime&gt;\qmt_ready\main_stock\qmt_profile.json" --confirm VERIFIED-PROFILE</pre>
+    </div>
+  </div>
+
+  <div class="note danger">
+    <p><strong>签名后再改任何字段都会使签名失效。</strong>这些映射只覆盖普通股票限价买卖，不代表市价、信用、基金、期货或其他动作已开放。旧电脑、旧账户、旧构建的签名 Profile 不可复用——签名必须在目标电脑本机完成。</p>
+  </div>
+</section>
+
+<!-- ============ 附录：本机控制台 ============ -->
+<section class="section" id="appendix-console">
+  <span class="eyebrow">附录</span>
+  <h2>本机控制台</h2>
+  <p>MCP <b>无法</b>做的事，全部收敛在这里：切换模式、解除熔断、签名 Profile、运行诊断。这些操作需要本机文件与命令行权限，是有意为之的安全边界。</p>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>命令</th><th>作用</th><th>是否需确认词</th></tr></thead>
+    <tbody>
+      <tr><td><code>set-mode &lt;MODE&gt;</code></td><td>切换 Worker 运行模式。</td><td><code class="inl">OBSERVE_ONLY</code> 不需要；其余需 <code class="inl">--confirm &lt;同名&gt;</code></td></tr>
+      <tr><td><code>clear-halt</code></td><td>解除熔断。模式会固定回到 <code class="inl">OBSERVE_ONLY</code>。</td><td><code class="inl">--confirm CLEAR-HALT</code></td></tr>
+      <tr><td><code>sign-qmt-profile &lt;路径&gt;</code></td><td>用本机密钥签名 Profile。</td><td><code class="inl">--confirm VERIFIED-PROFILE</code></td></tr>
+      <tr><td><code>doctor</code></td><td>检查配置、Profile、Adapter 与同步项。</td><td>否</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="card">
+    <div class="card-head"><span class="lbl">PowerShell</span><span class="fn">完整命令集</span><span class="spacer"></span><button class="copy">复制</button></div>
+    <pre data-lang="powershell"># 通用形式；python 可替换为安装时使用的 py -3
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" &lt;命令&gt;
+
+# 切回观察模式（不需要确认）
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" set-mode OBSERVE_ONLY
+
+# 切换到模拟信号 / 人工实盘 / 有限自动（确认词必须与模式名完全一致）
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" set-mode SIM_SIGNAL   --confirm SIM_SIGNAL
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" set-mode MANUAL_LIVE  --confirm MANUAL_LIVE
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" set-mode LIMITED_AUTO --confirm LIMITED_AUTO
+
+# 解除熔断（熔断期间拒绝改模式，必须先执行本命令）
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" clear-halt --reason "已排除的具体原因" --confirm CLEAR-HALT
+
+# 签名 Profile（P0 闭环后的最后一步）
+python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" sign-qmt-profile "&lt;runtime&gt;\qmt_ready\main_stock\qmt_profile.json" --confirm VERIFIED-PROFILE
+
+# 验证安装版本
+python -c "import workbuddy_qmt; print(workbuddy_qmt.__version__)"</pre>
+  </div>
+
+  <div class="note warn">
+    <p><strong>控制台只改 Worker 本机状态。</strong>它不会修改 <code class="inl">qmt_adapter.json</code>，也不会重启 QMT 策略。切模式后仍须：<b>停止策略 → 改 <code class="inl">qmt_mode</code> → 重启策略 → 启动 Worker → <code class="inl">qmt_health</code> 复核</b>。</p>
+  </div>
+
+  <h3>升级到 0.3.0</h3>
+  <ol class="plain">
+    <li>停止 Worker 与所有 QMT Adapter，撤销现有人为时间授权。</li>
+    <li>完整备份 runtime——特别是 <code class="inl">bridge.db</code> 及同目录的 <code class="inl">-wal</code> / <code class="inl">-shm</code> 文件、密钥、Profile、执行日志。</li>
+    <li>把新版 ZIP <b>完整解压到新的独立目录</b>（不要把新旧 wheel 混放，安装脚本只会挑一个）。</li>
+    <li>运行 <code class="inl">首次安装与配置.cmd</code>。数据库 schema 会从 1 自动迁移到 2。</li>
+    <li>0.3.0 改了命令与 Adapter 授权协议，<b>必须</b>把新生成的 <code class="inl">qmt_adapter.py</code> 重新部署到每个策略实例，并同步 <code class="inl">qmt_adapter.json</code> 的 P1 硬上限后重启策略。</li>
+    <li>确认工具数变为 29，且存在五个 <code class="inl">*_limited_auto*</code> 工具。</li>
+    <li>先在 <code class="inl">OBSERVE_ONLY</code> 跑 <code class="inl">doctor</code>，再在目标模拟柜台完整验证失败关闭路径。</li>
+  </ol>
+  <p>需要同步到 Adapter 的 P1 字段：<code class="inl">adapter_max_auto_session_notional</code>、<code class="inl">adapter_max_auto_orders</code>、<code class="inl">adapter_min_auto_order_interval_seconds</code>、<code class="inl">adapter_max_auto_concurrent_orders</code>、<code class="inl">adapter_max_auto_symbol_position_notional</code>、<code class="inl">adapter_max_auto_account_drawdown</code>、<code class="inl">limited_auto_credit_enabled</code>。</p>
+  <p>Profile schema 未变——只要没改 Profile 内容和三个 <code class="inl">expected_*</code> 绑定，<b>不需要重新签名</b>。回退时应整体恢复升级前备份，不能只装旧 wheel。</p>
+</section>
+
+<!-- ============ 附录：排障速查 ============ -->
+<section class="section" id="appendix-faq">
+  <span class="eyebrow">附录</span>
+  <h2>排障速查</h2>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>现象</th><th>根因</th><th>处理</th></tr></thead>
+    <tbody>
+      <tr><td><code>BRIDGE_UNAVAILABLE</code></td><td>Worker 未运行，或 17642 被占用。</td><td>运行 <code class="inl">查看QMT桥接状态.cmd</code>；关闭旧 Worker 后重启。</td></tr>
+      <tr><td>Adapter 显示 <code>OFFLINE</code></td><td>QMT 未登录、策略未启动，或部署的不是最新脚本。</td><td>重新部署 <code class="inl">qmt_ready</code> 中的脚本并重启策略；大 QMT 控制台默认每 30 秒打印一行心跳。</td></tr>
+      <tr><td>预览反复 <code>QUOTE_SNAPSHOT_STALE</code></td><td>行情超龄（默认 30 秒）。</td><td><code class="inl">request_sync</code> 带 <code class="inl">QUOTE</code> 域后<b>立即</b>预览；不要调大阈值绕过。</td></tr>
+      <tr><td><code>SNAPSHOT_CHANGED</code></td><td>风险决策指纹变化（资金/可卖量/价格/活动委托/额度/信用任一实质变化）。</td><td>重新预览。仅快照重编号或市值波动<b>不会</b>触发。</td></tr>
+      <tr><td><code>LIVE_NOT_ENABLED</code></td><td>Worker 模式不是 <code class="inl">MANUAL_LIVE</code>、已熔断、或预览模式不对。</td><td>查 <code class="inl">qmt_health</code> 的 <code class="inl">mode</code> 与 <code class="inl">halted</code>。</td></tr>
+      <tr><td><code>ACCOUNT_TYPE_MISMATCH</code></td><td>对普通账户调了信用接口，或动作不适用于该账户类型。</td><td>核对 <code class="inl">list_account_aliases</code> 返回的 <code class="inl">account_type</code>。</td></tr>
+      <tr><td><code>MESSAGE_SCHEMA_INVALID</code></td><td>Adapter 与 Worker 版本不匹配（0.3.0 改了命令协议）。</td><td>重新部署 <code class="inl">qmt_adapter.py</code> 并重启 QMT 策略。</td></tr>
+      <tr><td><code>SIGNATURE_INVALID</code></td><td>密钥不一致或已轮换。</td><td>确认 Adapter 与 Worker 指向同一 runtime 的 <code class="inl">key_file</code>。</td></tr>
+      <tr><td>切不回非观察模式</td><td>处于熔断状态。</td><td>先 <code class="inl">clear-halt</code>；解除后模式固定回到 <code class="inl">OBSERVE_ONLY</code>。</td></tr>
+      <tr><td>自动交易突然不下单了</td><td>许可被健康守卫暂停。</td><td><code class="inl">get_limited_auto_status</code> 看 <code class="inl">pause_reason</code>；排除后跑 readiness 再 <code class="inl">resume_limited_auto</code>。</td></tr>
+      <tr><td>连续失败后无法恢复许可</td><td>触发 <code class="inl">AUTO_CONSECUTIVE_FAILURE_LIMIT</code>。</td><td>设计如此。修正规则、更新 <code class="inl">rule_version</code>、创建新许可。</td></tr>
+      <tr><td>MCP JSON 无效</td><td><code class="inl">%USERPROFILE%\.workbuddy\mcp.json</code> 语法错误。</td><td>先修好 JSON 再重跑安装脚本——向导不会覆盖无效文件。</td></tr>
+      <tr><td>提示"找不到 wheel"</td><td>没有完整解压 ZIP，或脚本与 wheel 不在同一目录。</td><td>重新完整解压。</td></tr>
+      <tr><td>路径不能用 GBK 表示</td><td>运行目录含生僻字符或双引号。</td><td>改到仅含 ASCII 或常用中文的路径，重新配置。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>日常启动顺序</h3>
+  <ol class="plain">
+    <li>打开并登录大 QMT；</li>
+    <li>启动对应的 QMT 策略实例；</li>
+    <li>双击 <code class="inl">启动QMT桥接.cmd</code>，选择本次统一运行模式（不确定就直接回车用 <code class="inl">OBSERVE_ONLY</code>）；</li>
+    <li>保持 Worker 控制台窗口打开；</li>
+    <li>打开或重启 WorkBuddy；</li>
+    <li>在 WorkBuddy 里先查 <code class="inl">qmt_health</code>、账户与持仓，再做后续操作。</li>
+  </ol>
+  <p>关闭控制台或 <code class="inl">Ctrl+C</code> 会安全停止 Worker——但<b>不会</b>自动关闭 QMT 或 WorkBuddy，也<b>不会</b>自动撤销已提交给柜台的委托。</p>
+
+  <div class="note danger">
+    <p><strong>不要做的事。</strong>不要通过直接修改数据库、队列或签名文件来绕过检查；不要复制其他电脑的密钥、令牌或已签名 Profile；不要把 runtime、账户号、密钥、令牌或数据库放进公开代码仓库，或发送给他人。</p>
+  </div>
+
+  <div class="foot">
+    <dl class="foot-meta">
+      <div><dt>文档版本</dt><dd>2026-09-02 修订版</dd></div>
+      <div><dt>适用桥接版本</dt><dd>0.3.0（wheel 同名版本）</dd></div>
+      <div><dt>MCP 工具数</dt><dd>29</dd></div>
+      <div><dt>运行环境</dt><dd>Windows · Python ≥ 3.10</dd></div>
+      <div><dt>传输协议</dt><dd>MCP stdio + 本机 HTTP /rpc</dd></div>
+      <div><dt>默认监听</dt><dd>127.0.0.1:17642</dd></div>
+      <div><dt>许可证</dt><dd>MIT © 2026 peppaboar95</dd></div>
+      <div><dt>文档形态</dt><dd>单文件离线 · 无外部依赖</dd></div>
+    </dl>
+
+    <h4>关于本文档</h4>
+    <p>本文档描述 WorkBuddy-QMT Bridge 0.3.0 的 MCP 工具接口、传输协议、风控原因码与配置参数，内容与 wheel 内的 <code class="inl">mcp_server.py</code>、<code class="inl">core.py</code>、<code class="inl">worker.py</code>、<code class="inl">config.py</code> 实现一一对应。示例中的账户别名、标的、价格、委托号与金额均为虚构演示值，不包含任何真实账户信息、密钥或令牌。</p>
+    <p>本文件为自包含 HTML：不加载任何 CDN、外部字体或远程脚本，可离线双击打开，也可直接托管在任意静态站点上。</p>
+
+    <div class="disclaimer">
+      <h4>免责声明</h4>
+      <p><strong>本桥接为本地工具，不构成投资建议。</strong>它只是把操作者的指令翻译成结构化查询与下单动作，不提供任何买卖判断、策略信号或收益承诺。所有交易决策及其后果由操作者自行承担。</p>
+      <p><strong>运行模式不代表柜台类型。</strong><code class="inl">SIM_SIGNAL</code>、<code class="inl">MANUAL_LIVE</code>、<code class="inl">LIMITED_AUTO</code> 均无法识别当前连接的是模拟柜台还是真实资金柜台。启用任何非观察模式前，操作者必须在 QMT 中自行核对账户与柜台，并完成目标环境的 P0 现场验收。</p>
+      <p><strong>软件按「原样」提供。</strong>依据 MIT 许可证，作者不对软件的适用性、准确性、完整性或未侵权作任何明示或默示的担保，亦不对因使用或无法使用本软件所导致的任何直接、间接、附带、特殊、惩罚性或后果性损失承担责任，无论该损失是否已被预见。</p>
+      <p><strong>证券交易存在风险。</strong>融资融券交易具有财务杠杆效应，可能成倍放大收益或损失。启用自动交易功能前，请完整阅读发布包中的 <code class="inl">P1-VALIDATION.zh-CN.md</code>，充分理解其验证范围与仍需现场验收的边界。</p>
+    </div>
+  </div>
+</section>
+
+
+</main>
+</div>
+
+<button class="to-top" id="toTop" aria-label="回到顶部">
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M8 3L3.5 7.5M8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 代码高亮 ---------- */
+  function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+  function hlJson(src){
+    var re=/("(?:\\.|[^"\\])*")|(\b(?:true|false|null)\b)|(-?\d+(?:\.\d+)?)/g;
+    var out="",last=0,m;
+    while((m=re.exec(src))!==null){
+      out+=esc(src.slice(last,m.index));
+      if(m[1]){
+        var after=src.slice(re.lastIndex).match(/^\s*:/);
+        out+='<span class="tk-'+((after)?"key":"str")+'">'+esc(m[1])+'</span>';
+        if(after){out+=esc(after[0]);re.lastIndex+=after[0].length;}
+      }else if(m[2]){out+='<span class="tk-lit">'+m[2]+'</span>';}
+      else{out+='<span class="tk-num">'+m[3]+'</span>';}
+      last=re.lastIndex;
+    }
+    return out+esc(src.slice(last));
+  }
+
+  function hlShell(src){
+    return src.split("\n").map(function(line){
+      var h=esc(line);
+      if(/^\s*#/.test(line)) return '<span class="tk-com">'+h+'</span>';
+      h=h.replace(/^(\s*)([a-zA-Z_][\w.\-]*)/,'$1<span class="tk-cmd">$2</span>');
+      h=h.replace(/("(?:[^"]*)")/g,'<span class="tk-str">$1</span>');
+      return h;
+    }).join("\n");
+  }
+
+  function hlText(src){
+    return src.split("\n").map(function(line){
+      var h=esc(line);
+      if(/^\s*(#|\/\/)/.test(line)) return '<span class="tk-com">'+h+'</span>';
+      return h;
+    }).join("\n");
+  }
+
+  var blocks=document.querySelectorAll("pre[data-code]");
+  Array.prototype.forEach.call(blocks,function(pre){
+    var lang=pre.getAttribute("data-lang")||"json";
+    var raw=pre.textContent.replace(/\s+$/,"");
+    if(lang==="json"){pre.innerHTML=hlJson(raw);}
+    else if(lang==="bash"||lang==="powershell"){pre.innerHTML=hlShell(raw);}
+    else{pre.innerHTML=hlText(raw);}
+    pre.setAttribute("data-raw",raw);
+  });
+
+  /* ---------- 复制按钮 ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll(".copy"),function(btn){
+    btn.addEventListener("click",function(){
+      var card=btn.closest(".card");
+      var pre=card?card.querySelector("pre"):null;
+      if(!pre) return;
+      var text=pre.getAttribute("data-raw")||pre.textContent;
+      var done=function(){
+        var old=btn.textContent;
+        btn.textContent="已复制";btn.classList.add("done");
+        setTimeout(function(){btn.textContent=old;btn.classList.remove("done");},1400);
+      };
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done,function(){fallback(text,done);});
+      }else{fallback(text,done);}
+    });
+  });
+  function fallback(text,cb){
+    var ta=document.createElement("textarea");
+    ta.value=text;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy");cb();}catch(e){}
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- 侧栏：过滤 ---------- */
+  var links=Array.prototype.slice.call(document.querySelectorAll(".nav-link"));
+  var groups=Array.prototype.slice.call(document.querySelectorAll(".nav-group"));
+  var emptyTip=document.getElementById("navEmpty");
+  var search=document.getElementById("navSearch");
+  if(search){
+    search.addEventListener("input",function(){
+      var q=search.value.trim().toLowerCase();
+      var any=false;
+      links.forEach(function(a){
+        var hit=!q||a.textContent.toLowerCase().indexOf(q)>-1;
+        a.parentNode.style.display=hit?"":"none";
+        if(hit)any=true;
+      });
+      groups.forEach(function(g){
+        var vis=Array.prototype.slice.call(g.querySelectorAll("li"))
+          .some(function(li){return li.style.display!=="none";});
+        g.style.display=vis?"":"none";
+      });
+      emptyTip.style.display=(q&&!any)?"block":"none";
+    });
+  }
+
+  /* ---------- 侧栏：滚动高亮 ---------- */
+  var sections=Array.prototype.slice.call(document.querySelectorAll("section.section[id]"));
+  var byId={};
+  links.forEach(function(a){byId[a.getAttribute("href").slice(1)]=a;});
+
+  function setActive(id){
+    links.forEach(function(a){a.classList.remove("active");});
+    var a=byId[id];
+    if(a){
+      a.classList.add("active");
+      var sb=document.getElementById("sidebar");
+      var r=a.getBoundingClientRect(),sr=sb.getBoundingClientRect();
+      if(r.top<sr.top+30||r.bottom>sr.bottom-30){
+        sb.scrollTop+=(r.top-sr.top)-(sr.height/2)+(r.height/2);
+      }
+    }
+  }
+
+  if("IntersectionObserver" in window&&sections.length){
+    var visible={};
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){visible[e.target.id]=e.isIntersecting?e.intersectionRatio:0;});
+      var best=null,bestV=0;
+      for(var k in visible){if(visible[k]>bestV){bestV=visible[k];best=k;}}
+      if(best) setActive(best);
+    },{rootMargin:"-70px 0px -62% 0px",threshold:[0,.15,.4,.75,1]});
+    sections.forEach(function(s){io.observe(s);});
+  }
+
+  /* ---------- 移动端抽屉 ---------- */
+  var sidebar=document.getElementById("sidebar");
+  var backdrop=document.getElementById("backdrop");
+  var menuBtn=document.getElementById("menuBtn");
+  function closeNav(){sidebar.classList.remove("open");backdrop.classList.remove("show");}
+  if(menuBtn){
+    menuBtn.addEventListener("click",function(){
+      sidebar.classList.toggle("open");
+      backdrop.classList.toggle("show",sidebar.classList.contains("open"));
+    });
+  }
+  backdrop.addEventListener("click",closeNav);
+  links.forEach(function(a){a.addEventListener("click",function(){if(window.innerWidth<=900)closeNav();});});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")closeNav();});
+
+  /* ---------- 回到顶部 ---------- */
+  var toTop=document.getElementById("toTop");
+  function onScroll(){
+    if(window.scrollY>560)toTop.classList.add("show");
+    else toTop.classList.remove("show");
+  }
+  window.addEventListener("scroll",onScroll,{passive:true});
+  onScroll();
+  toTop.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"});});
+})();
+</script>
+</body>
+</html>
