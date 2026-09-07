@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 import tempfile
@@ -81,9 +83,13 @@ class ManagerProfileSafetyTests(unittest.TestCase):
             "--force",
         ])
 
-        run_setup(args, launcher_path)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            run_setup(args, launcher_path)
 
         self.assertEqual(self._read_profile_bytes(), self.signed_profile_bytes)
+        self.assertTrue(output.getvalue().isascii())
+        self.assertTrue(json.loads(output.getvalue())["ok"])
 
     def test_profile_reset_requires_dedicated_confirmation(self):
         with self.assertRaises(ManagerError) as raised:

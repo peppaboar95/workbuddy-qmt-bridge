@@ -2,7 +2,7 @@
 
 本文面向从发布 ZIP 安装的 Windows 用户。源码开发、接口字段和完整风控设计请查看项目 `README.md`。
 
-当前发布版本为 `0.3.2`。这是 Profile 升级保护修复版本，不改变交易、风控、数据库 schema、配置或 Adapter 协议。
+当前发布版本为 `0.3.3`。这是 Profile 升级保护与非交互 Windows 输出兼容修复版本，不改变交易、风控、数据库 schema、配置或 Adapter 协议。
 
 ## 一、安装前准备
 
@@ -556,11 +556,11 @@ python -m workbuddy_qmt.console --config "<runtime>\config\bridge.json" `
 - 如果升级修改了数据库 schema、配置、Adapter 或 Profile，应停止 Worker/QMT 后整体恢复升级前备份，不能只回退 wheel。
 - 回退后固定从 `OBSERVE_ONLY` 启动，重新检查数据库、队列、Adapter、Profile 和签名，不复用升级期间产生的 LIVE 授权。
 
-### 当前 0.3.2 的升级方法
+### 当前 0.3.3 的升级方法
 
-从 0.3.0 或 0.3.1 升级到 0.3.2，只需停止旧 Worker，运行新版 `首次安装与配置.cmd` 覆盖安装 wheel，然后重启 Worker 和 WorkBuddy。新版向导会保留已有 Profile，即使确认更新 Adapter/配置或使用 `setup --force` 也不会清空 Profile。数据库 schema、`bridge.json`、Profile schema 和 Adapter 协议均未变化，不需要仅为本次升级重新签名。
+从 0.3.0、0.3.1 或 0.3.2 升级到 0.3.3，只需停止旧 Worker，运行新版 `首次安装与配置.cmd` 覆盖安装 wheel，然后重启 Worker 和 WorkBuddy。新版向导会保留已有 Profile，即使确认更新 Adapter/配置或使用 `setup --force` 也不会清空 Profile。数据库 schema、`bridge.json`、Profile schema 和 Adapter 协议均未变化，不需要仅为本次升级重新签名。
 
-从 0.2.5 或更早版本直接升级到 0.3.2 时，还必须执行下面列出的 0.3.0 协议与数据库迁移步骤。
+从 0.2.5 或更早版本直接升级到 0.3.3 时，还必须执行下面列出的 0.3.0 协议与数据库迁移步骤。
 
 ### 0.3.0 的特殊升级要求
 

@@ -1230,7 +1230,7 @@ def run_setup(args, launcher_path):
         print("  5. 双击桌面的“启动QMT桥接.cmd”启动 Worker。")
         print("  6. WorkBuddy 看不到工具时，运行“查看QMT桥接状态.cmd”；异常时会自动诊断。")
     else:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=True, indent=2))
     return 0
 
 

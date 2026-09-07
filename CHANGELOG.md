@@ -2,6 +2,17 @@
 
 本项目的重要变化记录在此。版本号遵循 Semantic Versioning。
 
+## 0.3.3 - 2026-09-08
+
+### Fixed
+
+- 非交互 setup 的机器可读 JSON 改为 ASCII 转义输出，避免英文 Windows 的 `cp1252` 控制台因中文字符报 `UnicodeEncodeError`；
+- Profile 安全回归测试现在同时验证非交互输出可跨 Windows 区域设置传输和解析。
+
+### Safety
+
+- 完整包含 0.3.2 的 Profile 升级保护：普通 setup、安装向导和 `--force` 均保留已有 Profile，重置仍必须指定账户和专用确认词。
+
 ## 0.3.2 - 2026-09-08
 
 ### Fixed
