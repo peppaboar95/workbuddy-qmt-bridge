@@ -9,10 +9,17 @@ from .errors import BridgeError, ValidationError
 from .modes import RUN_MODES
 from .security import make_envelope
 from .util import (
-    atomic_write_json, canonical_json, iso_now, json_text, new_client_order_key, new_id,
-    normalize_symbol, parse_time, require_exact_keys, utc_now,
+    atomic_write_json,
+    canonical_json,
+    iso_now,
+    json_text,
+    new_client_order_key,
+    new_id,
+    normalize_symbol,
+    parse_time,
+    require_exact_keys,
+    utc_now,
 )
-
 
 STOCK_ACTIONS = {"BUY", "SELL", "TARGET_POSITION"}
 CREDIT_EXPLICIT_ACTIONS = {

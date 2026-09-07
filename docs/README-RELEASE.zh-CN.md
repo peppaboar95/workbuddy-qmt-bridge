@@ -2,6 +2,8 @@
 
 本文面向从发布 ZIP 安装的 Windows 用户。源码开发、接口字段和完整风控设计请查看项目 `README.md`。
 
+当前发布版本为 `0.3.1`。这是不改变交易、风控、数据库 schema、配置或 Adapter 协议的维护版本。
+
 ## 一、安装前准备
 
 需要提前安装：
@@ -21,12 +23,10 @@
 
 - `首次安装与配置.cmd`：首次安装和配置入口；
 - `workbuddy_qmt_bridge-<版本>-py3-none-any.whl`：Python 安装包；
+- `RELEASE-v<版本>.md`：当前版本变更和升级说明；
 - `README-RELEASE.zh-CN.md`：本文；
 - `P1-VALIDATION.zh-CN.md`：0.3.0 软件验证范围、测试结果和仍需现场验收的边界；
-- `tests\test_limited_auto_p1.py`：可对已安装 wheel 重跑的 P1 增量测试；
 - `SHA256SUMS.txt`：发布 ZIP 内 wheel 的 SHA-256；ZIP 自身的校验值位于同目录 `.zip.sha256` 文件；
-- `workbuddy.mcp.example.json`：仅供手工排障的 MCP 示例；
-- `workbuddy.mcp.example.README.md`：MCP 示例字段说明；
 - `examples\`：Bridge、普通/信用 QMT Adapter、未签名 Profile 和 MCP 的完整示例及参数说明。
 
 必须先完整解压 ZIP，再运行安装脚本。不要直接在压缩软件预览窗口中双击脚本，也不要只复制其中一个文件。
@@ -542,7 +542,13 @@ python -m workbuddy_qmt.console --config "<runtime>\config\bridge.json" `
 - 如果升级修改了数据库 schema、配置、Adapter 或 Profile，应停止 Worker/QMT 后整体恢复升级前备份，不能只回退 wheel。
 - 回退后固定从 `OBSERVE_ONLY` 启动，重新检查数据库、队列、Adapter、Profile 和签名，不复用升级期间产生的 LIVE 授权。
 
-### 当前 0.3.0 的升级方法
+### 当前 0.3.1 的升级方法
+
+从 0.3.0 升级到 0.3.1，只需停止旧 Worker，运行新版 `首次安装与配置.cmd` 覆盖安装 wheel，然后重启 Worker 和 WorkBuddy。数据库 schema、`bridge.json`、Profile 和 Adapter 协议均未变化；现有 QMT Adapter 可以继续使用，如需让部署源码与 wheel 完全一致，可在保持 `OBSERVE_ONLY` 时重新生成并部署 Adapter。
+
+从 0.2.5 或更早版本直接升级到 0.3.1 时，还必须执行下面列出的 0.3.0 协议与数据库迁移步骤。
+
+### 0.3.0 的特殊升级要求
 
 从 0.2.5 或更早版本升级到 0.3.0，必须停止 Worker 和所有 QMT Adapter，撤销现有人工时间授权，完整备份 runtime（特别是数据库、WAL/SHM、密钥、Profile 和执行日志），再运行新版 `首次安装与配置.cmd`。首次启动 0.3.0 时数据库 schema 会从 1 自动迁移到 2，新增结构化自动许可和原子额度使用表；需要回退时应整体恢复升级前备份，不能只安装旧 wheel。
 

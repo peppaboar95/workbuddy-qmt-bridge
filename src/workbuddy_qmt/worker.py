@@ -5,7 +5,6 @@ import os
 import signal
 import sys
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import load_config
@@ -15,7 +14,7 @@ from .errors import BridgeError
 from .event_ingest import EventIngester
 from .file_queue import FileQueue
 from .security import KeyRing
-from .util import iso_now, json_text, new_id
+from .util import iso_now, new_id
 
 
 def build_runtime(config_path=None):
@@ -111,7 +110,7 @@ def make_handler(core, database, token, max_bytes):
                 except Exception:
                     pass
                 self._send(200, result)
-            except Exception as exc:
+            except Exception:
                 self._send(500, {
                     "ok": False, "request_id": new_id("req"), "as_of": iso_now(), "data": None, "warnings": [],
                     "error": {"code": "INTERNAL_ERROR", "message": "worker failed to process request", "details": {}},

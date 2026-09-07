@@ -1,9 +1,7 @@
-import datetime as dt
 import json
 
 from .errors import BridgeError
 from .util import iso_now, json_text, new_id, normalize_symbol
-
 
 EVENT_TYPES = {
     "HEARTBEAT", "COMMAND_ACK", "ORDER_EVENT", "TRADE_EVENT", "POSITION_EVENT",

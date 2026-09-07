@@ -1,14 +1,13 @@
-import json
 import ipaddress
+import json
 import math
 import os
 import re
 from dataclasses import dataclass, field
 
 from .errors import BridgeError
-from .modes import RUN_MODES, normalize_mode
+from .modes import normalize_mode
 from .util import normalize_symbol
-
 
 ACCOUNT_TYPES = {"STOCK", "CREDIT"}
 DEFAULT_SPECIAL_PREFIXES = ("688", "689")

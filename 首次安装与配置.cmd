@@ -53,11 +53,22 @@ echo.
 
 echo [Step 2/4] Locating the installation source.
 set "WHEEL="
-for %%F in ("%~dp0workbuddy_qmt_bridge-*.whl") do if exist "%%~fF" if not defined WHEEL set "WHEEL=%%~fF"
+set "WHEEL_COUNT=0"
+for %%F in ("%~dp0workbuddy_qmt_bridge-*.whl") do if exist "%%~fF" (
+  set /a WHEEL_COUNT+=1
+  set "WHEEL=%%~fF"
+)
+if %WHEEL_COUNT% GTR 1 goto multiple_wheels
 if defined WHEEL goto install_wheel
 if exist "%~dp0pyproject.toml" goto install_source
 echo [ERROR] Neither a release wheel nor pyproject.toml was found beside this file.
 echo USER ACTION: Extract the complete Release ZIP, or run this file from the source repository root.
+pause
+exit /b 2
+
+:multiple_wheels
+echo [ERROR] More than one workbuddy_qmt_bridge wheel was found beside this file.
+echo USER ACTION: Keep only the wheel from the current Release, then run this file again.
 pause
 exit /b 2
 

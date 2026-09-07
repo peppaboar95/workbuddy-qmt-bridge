@@ -4,7 +4,7 @@ import hmac
 import json
 
 from .errors import BridgeError
-from .util import canonical_json, iso_now, new_id, parse_time, utc_now
+from .util import canonical_json, new_id, parse_time, utc_now
 
 
 class KeyRing:
@@ -95,4 +95,3 @@ def validate_envelope(envelope, keyring, expected_types=None, max_clock_skew_sec
     if expires <= issued:
         raise BridgeError("MESSAGE_SCHEMA_INVALID", "expires_at must follow issued_at")
     return envelope
-

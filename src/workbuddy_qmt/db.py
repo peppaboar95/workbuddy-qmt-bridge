@@ -5,7 +5,6 @@ import sqlite3
 from .modes import normalize_mode
 from .util import iso_now
 
-
 SCHEMA = r"""
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;

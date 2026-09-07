@@ -20,7 +20,6 @@ from .security import KeyRing
 from .util import atomic_write_bytes, atomic_write_json, new_id
 from .worker import main as worker_main
 
-
 LAUNCHER_VERSION = 1
 MCP_SERVER_NAME = "qmt-bridge"
 SAFE_ALIAS_RE = re.compile(r"^[A-Za-z0-9_.-]+$")

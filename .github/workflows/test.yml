@@ -44,7 +44,7 @@ jobs:
         run: |
           $wheel = Get-ChildItem -LiteralPath .\dist -Filter *.whl | Select-Object -First 1
           python -m pip install --force-reinstall $wheel.FullName
-          python -c "import workbuddy_qmt; assert workbuddy_qmt.__version__ == '0.3.0'"
+          python -c "import importlib.metadata as m, workbuddy_qmt; assert workbuddy_qmt.__version__ == m.version('workbuddy-qmt-bridge')"
       - uses: actions/upload-artifact@v4
         with:
           name: release-candidate

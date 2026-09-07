@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Python = "python",
-    [string]$Version = "0.3.0",
+    [string]$Version = "",
     [string]$OutputDirectory = ""
 )
 
@@ -10,8 +10,35 @@ Set-StrictMode -Version Latest
 
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $initPath = Join-Path $repoRoot "src\workbuddy_qmt\__init__.py"
+$projectPath = Join-Path $repoRoot "pyproject.toml"
+
+if (-not (Test-Path -LiteralPath $projectPath -PathType Leaf)) {
+    throw "Project metadata not found: $projectPath"
+}
+
+$projectText = Get-Content -LiteralPath $projectPath -Raw
+$projectVersionMatch = [regex]::Match(
+    $projectText,
+    '(?m)^version\s*=\s*"(?<version>[^"]+)"\s*$'
+)
+if (-not $projectVersionMatch.Success) {
+    throw "Project version not found in pyproject.toml"
+}
+$projectVersion = $projectVersionMatch.Groups["version"].Value
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = $projectVersion
+}
+if ($Version -ne $projectVersion) {
+    throw "Requested version $Version does not match pyproject.toml version $projectVersion"
+}
+if ($Version -notmatch '^\d+\.\d+\.\d+(?:[A-Za-z0-9._-]+)?$') {
+    throw "Unsupported release version: $Version"
+}
+
 $expectedWheel = "workbuddy_qmt_bridge-$Version-py3-none-any.whl"
 $zipName = "workbuddy-qmt-bridge-$Version.zip"
+$releaseNotesName = "RELEASE-v$Version.md"
+$releaseNotesPath = Join-Path $repoRoot "docs\$releaseNotesName"
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $repoRoot "dist"
@@ -21,6 +48,9 @@ $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 if (-not (Test-Path -LiteralPath $initPath -PathType Leaf)) {
     throw "Package version file not found: $initPath"
 }
+if (-not (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf)) {
+    throw "Release notes not found: $releaseNotesPath"
+}
 
 $initText = Get-Content -LiteralPath $initPath -Raw
 if ($initText -notmatch ('__version__\s*=\s*"' + [regex]::Escape($Version) + '"')) {
@@ -29,18 +59,23 @@ if ($initText -notmatch ('__version__\s*=\s*"' + [regex]::Escape($Version) + '"'
 
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
-$knownOutputs = @(
+$releaseOutputs = @(
+    "workbuddy_qmt_bridge-*-py3-none-any.whl",
+    "workbuddy-qmt-bridge-*.zip",
+    "workbuddy-qmt-bridge-*.zip.sha256",
+    "SHA256SUMS.txt"
+)
+Get-ChildItem -LiteralPath $OutputDirectory -File | Where-Object {
+    $name = $_.Name
+    @($releaseOutputs | Where-Object { $name -like $_ }).Count -gt 0
+} | Remove-Item -Force
+
+$expectedOutputs = @(
     $expectedWheel,
     $zipName,
     "$zipName.sha256",
     "SHA256SUMS.txt"
 )
-foreach ($name in $knownOutputs) {
-    $path = Join-Path $OutputDirectory $name
-    if (Test-Path -LiteralPath $path -PathType Leaf) {
-        Remove-Item -LiteralPath $path -Force
-    }
-}
 
 & $Python -m pip wheel $repoRoot --no-deps --no-build-isolation --no-cache-dir --wheel-dir $OutputDirectory
 if ($LASTEXITCODE -ne 0) {
@@ -69,6 +104,7 @@ try {
     }
     Copy-Item -LiteralPath $installerCandidates[0].FullName -Destination $stageFull
     Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $stageFull
+    Copy-Item -LiteralPath $releaseNotesPath -Destination $stageFull
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\README-RELEASE.zh-CN.md") -Destination (Join-Path $stageFull "README-RELEASE.zh-CN.md")
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\P1-VALIDATION.zh-CN.md") -Destination (Join-Path $stageFull "P1-VALIDATION.zh-CN.md")
     Copy-Item -LiteralPath (Join-Path $repoRoot "examples") -Destination (Join-Path $stageFull "examples") -Recurse
@@ -85,6 +121,28 @@ try {
         $false
     )
 
+    $requiredEntries = @(
+        $installerCandidates[0].Name,
+        "LICENSE",
+        "README-RELEASE.zh-CN.md",
+        "P1-VALIDATION.zh-CN.md",
+        $releaseNotesName,
+        "SHA256SUMS.txt",
+        $expectedWheel,
+        "examples/README.md"
+    )
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+    try {
+        $archiveEntries = @($archive.Entries | ForEach-Object { $_.FullName.Replace("\", "/") })
+        $missingEntries = @($requiredEntries | Where-Object { $_ -notin $archiveEntries })
+        if ($missingEntries.Count -gt 0) {
+            throw "Release ZIP is missing required entries: $($missingEntries -join ', ')"
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+
     $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
     @(
         "$wheelHash  $expectedWheel"
@@ -94,7 +152,7 @@ try {
 
     Write-Host "Release build completed:"
     Get-ChildItem -LiteralPath $OutputDirectory -File |
-        Where-Object { $_.Name -in $knownOutputs } |
+        Where-Object { $_.Name -in $expectedOutputs } |
         Sort-Object Name |
         Select-Object Name, Length, LastWriteTime |
         Format-Table -AutoSize

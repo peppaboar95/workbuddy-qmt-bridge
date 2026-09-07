@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 import sys
 import urllib.error
 import urllib.request
@@ -243,7 +242,7 @@ class WorkerClient:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
-        except (OSError, ValueError, urllib.error.HTTPError) as exc:
+        except (OSError, ValueError, urllib.error.HTTPError):
             return {
                 "ok": False, "request_id": new_id("req"), "as_of": None, "data": None, "warnings": [],
                 "error": {"code": "BRIDGE_UNAVAILABLE", "message": "cannot reach local bridge worker", "details": {}},

@@ -13,10 +13,8 @@ import hmac
 import json
 import math
 import os
-import shutil
 import time
 import uuid
-
 
 ADAPTER_CONFIG_PATH = r"D:\workbuddy-qmt-bridge\config\qmt_adapter.json"
 

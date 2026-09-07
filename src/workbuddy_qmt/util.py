@@ -5,7 +5,6 @@ import os
 import re
 import uuid
 
-
 UTC = dt.timezone.utc
 SYMBOL_RE = re.compile(r"^(\d{6})\.(SH|SZ|BJ)$")
 
@@ -88,4 +87,3 @@ def require_exact_keys(value, allowed, required=()):
         raise ValueError("unknown fields: %s" % ", ".join(unknown))
     if missing:
         raise ValueError("missing fields: %s" % ", ".join(missing))
-

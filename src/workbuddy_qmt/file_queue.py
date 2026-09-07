@@ -1,12 +1,10 @@
 import json
 import os
-import shutil
 import time
 
 from .errors import BridgeError
 from .security import validate_envelope
 from .util import atomic_write_bytes, canonical_json
-
 
 QUEUE_FOLDERS = (
     "commands", "command_acks", "events", "control", "control_acks",
