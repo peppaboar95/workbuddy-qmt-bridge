@@ -413,6 +413,10 @@ ol.plain li{margin-bottom:8px}
   <p class="lead">WorkBuddy-QMT Bridge 是一套运行在本机的交易桥接层。它把 Tencent WorkBuddy 的自然语言请求，翻译成结构化的大 QMT 查询与下单动作，并在整条链路上强制实施「失败关闭」（fail-closed）风控。</p>
   <p>本桥接服务<b>不托管任何资金接口</b>，也不连接任何远端服务。Worker 只监听本机回环地址，QMT Adapter 以策略脚本形式运行在大 QMT 客户端内部，两者通过本机签名文件队列通信。</p>
 
+  <div class="note ok">
+    <p><strong>v0.3.3 已发布。</strong>重复运行安装向导、<code class="inl">setup</code> 或 <code class="inl">setup --force</code> 时，已有签名 Profile 会被原样保留；有意重置必须明确指定账户并提供专用确认词。非交互 setup 的 JSON 输出也已兼容不同 Windows 区域编码。安装包、ZIP、哈希和完整升级说明见 <a href="https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/tag/v0.3.3">GitHub Release v0.3.3</a>。</p>
+  </div>
+
   <div class="grid2">
     <div class="panel"><span class="k">29</span><h4>MCP 工具</h4><p>覆盖健康检查、账户、行情、持仓、委托、成交、信用、预览、提交、授权与熔断。</p></div>
     <div class="panel"><span class="k">4</span><h4>运行模式</h4><p><code class="inl">OBSERVE_ONLY</code> / <code class="inl">SIM_SIGNAL</code> / <code class="inl">MANUAL_LIVE</code> / <code class="inl">LIMITED_AUTO</code>。</p></div>
@@ -3029,7 +3033,7 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
   <h3>Profile 与 P0</h3>
   <p>新环境生成的 <code class="inl">qmt_profile.json</code> 刻意保持 <code class="inl">verified=false</code> 且签名为空，<b>不能直接运行 <code class="inl">SIM_SIGNAL</code> 或 <code class="inl">MANUAL_LIVE</code></b>。完成目标电脑、目标 QMT 构建、目标柜台的 P0 后，需填写以下字段并同步：</p>
   <div class="note ok">
-    <p><strong>0.3.2 Profile 升级保护。</strong>重复运行安装向导、<code class="inl">setup</code> 或 <code class="inl">setup --force</code> 都会保留已有 Profile。只有显式指定 <code class="inl">--reset-profile &lt;账户别名&gt;</code> 并同时提供 <code class="inl">--confirm-reset-profile RESET-QMT-PROFILE</code> 才能重置，且重置前会创建时间戳备份。</p>
+    <p><strong>v0.3.3 Profile 升级保护。</strong>重复运行安装向导、<code class="inl">setup</code> 或 <code class="inl">setup --force</code> 都会保留已有 Profile。只有显式指定 <code class="inl">--reset-profile &lt;账户别名&gt;</code> 并同时提供 <code class="inl">--confirm-reset-profile RESET-QMT-PROFILE</code> 才能重置，且重置前会创建时间戳备份。</p>
   </div>
   <ol class="plain">
     <li>填 <code class="inl">profile_id</code>、<code class="inl">qmt_build</code>、<code class="inl">broker_build</code>、<code class="inl">mappings</code>，设 <code class="inl">verified=true</code>。</li>
@@ -3180,6 +3184,7 @@ python -c "import workbuddy_qmt; print(workbuddy_qmt.__version__)"</pre>
 
     <h4>关于本文档</h4>
     <p>本文档描述 WorkBuddy-QMT Bridge 0.3.3 的 MCP 工具接口、传输协议、风控原因码与配置参数，内容与 wheel 内的 <code class="inl">mcp_server.py</code>、<code class="inl">core.py</code>、<code class="inl">worker.py</code>、<code class="inl">config.py</code> 实现一一对应。示例中的账户别名、标的、价格、委托号与金额均为虚构演示值，不包含任何真实账户信息、密钥或令牌。</p>
+    <p>当前安装资产与升级说明：<a href="https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/tag/v0.3.3">Release v0.3.3</a>；项目源码与历史：<a href="https://github.com/peppaboar95/workbuddy-qmt-bridge">GitHub 仓库</a>。</p>
     <p>本文件为自包含 HTML：不加载任何 CDN、外部字体或远程脚本，可离线双击打开，也可直接托管在任意静态站点上。</p>
 
     <div class="disclaimer">
