@@ -24,6 +24,7 @@ LAUNCHER_VERSION = 1
 MCP_SERVER_NAME = "qmt-bridge"
 SAFE_ALIAS_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 SAFE_QMT_ACCOUNT_RE = re.compile(r"^[A-Za-z0-9_.-]{4,64}$")
+RESET_PROFILE_CONFIRMATION = "RESET-QMT-PROFILE"
 
 
 class ManagerError(Exception):
@@ -253,11 +254,19 @@ def _base_adapter_config(config, account, account_id, mapping_profile):
     return value
 
 
-def generate_qmt_bundle(config_path, account_alias, account_id, output_root=None, overwrite=False):
+def generate_qmt_bundle(
+        config_path, account_alias, account_id, output_root=None, overwrite=False,
+        reset_profile=False, reset_profile_confirmation=None):
     config_path = os.path.abspath(config_path)
     config = load_config(config_path)
     account = config.account(account_alias)
     alias = _safe_alias(account.alias)
+    if reset_profile and reset_profile_confirmation != RESET_PROFILE_CONFIRMATION:
+        raise ManagerError(
+            "LOCAL_CONFIRMATION_REQUIRED",
+            "重置 Profile 必须提供专用确认词 %s" % RESET_PROFILE_CONFIRMATION,
+            {"account_alias": alias},
+        )
     account_id = str(account_id).strip()
     if (not account_id or "REPLACE" in account_id.upper() or
             not SAFE_QMT_ACCOUNT_RE.fullmatch(account_id)):
@@ -312,18 +321,30 @@ def generate_qmt_bundle(config_path, account_alias, account_id, output_root=None
             "QMT 配置路径无法使用 GBK 编码，请选择仅含 ASCII/常用中文字符的运行目录",
             {"path": adapter_config_path},
         )
-    outputs = {
+    generated_outputs = {
         adapter_config_path: _pretty_json(adapter_config),
-        profile_path: _pretty_json(profile),
         script_path: script_bytes,
     }
-    for path, data in outputs.items():
+    profile_bytes = _pretty_json(profile)
+    profile_exists = os.path.exists(profile_path)
+    if not profile_exists or reset_profile:
+        generated_outputs[profile_path] = profile_bytes
+    for path, data in generated_outputs.items():
         if os.path.exists(path):
             with open(path, "rb") as stream:
                 different = stream.read() != data
-            if different and not overwrite:
+            profile_reset_allowed = path == profile_path and reset_profile
+            if different and not overwrite and not profile_reset_allowed:
                 raise ManagerError("FILE_EXISTS", "QMT 生成文件已存在且内容不同", {"path": path})
-    results = [_write_changed(path, data, overwrite=overwrite) for path, data in outputs.items()]
+    result_by_path = {}
+    for path, data in generated_outputs.items():
+        allow_overwrite = overwrite or (path == profile_path and reset_profile)
+        result_by_path[path] = _write_changed(path, data, overwrite=allow_overwrite)
+    if profile_exists and not reset_profile:
+        result_by_path[profile_path] = {
+            "path": profile_path, "changed": False, "backup": None, "preserved": True,
+        }
+    results = [result_by_path[path] for path in (adapter_config_path, profile_path, script_path)]
     return {
         "account_alias": alias,
         "account_type": account.account_type,
@@ -331,6 +352,8 @@ def generate_qmt_bundle(config_path, account_alias, account_id, output_root=None
         "adapter_config": adapter_config_path,
         "mapping_profile": profile_path,
         "adapter_script": script_path,
+        "profile_preserved": profile_exists and not reset_profile,
+        "profile_reset": profile_exists and reset_profile,
         "files": results,
     }
 
@@ -1026,6 +1049,15 @@ def run_setup(args, launcher_path):
     if sys.version_info < (3, 10):
         raise ManagerError("PYTHON_VERSION", "需要 Python 3.10 或更高版本")
     interactive = not args.non_interactive
+    reset_profiles = set(args.reset_profile or [])
+    if args.confirm_reset_profile and not reset_profiles:
+        raise ManagerError("INVALID_REQUEST", "--confirm-reset-profile 只能与 --reset-profile 一起使用")
+    if reset_profiles and args.confirm_reset_profile != RESET_PROFILE_CONFIRMATION:
+        raise ManagerError(
+            "LOCAL_CONFIRMATION_REQUIRED",
+            "重置 Profile 必须提供 --confirm-reset-profile %s" % RESET_PROFILE_CONFIRMATION,
+            {"accounts": sorted(reset_profiles)},
+        )
     if interactive:
         print("\n============================================================")
         print("WorkBuddy-QMT 首次配置向导")
@@ -1075,6 +1107,20 @@ def run_setup(args, launcher_path):
             raise ManagerError("ACCOUNT_REQUIRED", "至少需要启用一个账户")
     config_path = initialize(runtime_root, account_types if is_new else None)
     config = load_config(config_path)
+    unknown_reset_profiles = reset_profiles - set(config.accounts)
+    if unknown_reset_profiles:
+        raise ManagerError(
+            "INVALID_REQUEST", "--reset-profile 包含未知账户别名",
+            {"accounts": sorted(unknown_reset_profiles)},
+        )
+    disabled_reset_profiles = {
+        alias for alias in reset_profiles if not config.accounts[alias].enabled
+    }
+    if disabled_reset_profiles:
+        raise ManagerError(
+            "INVALID_REQUEST", "不能通过 setup 重置未启用账户的 Profile",
+            {"accounts": sorted(disabled_reset_profiles)},
+        )
     if interactive:
         print("账户状态：")
         for configured_account in config.accounts.values():
@@ -1097,15 +1143,30 @@ def run_setup(args, launcher_path):
         if not account_id:
             skipped_accounts.append(account.alias)
             continue
+        reset_profile = account.alias in reset_profiles
         try:
-            bundle = generate_qmt_bundle(config_path, account.alias, account_id, overwrite=args.force)
+            bundle = generate_qmt_bundle(
+                config_path, account.alias, account_id,
+                overwrite=args.force,
+                reset_profile=reset_profile,
+                reset_profile_confirmation=args.confirm_reset_profile,
+            )
         except ManagerError as exc:
             if exc.code != "FILE_EXISTS" or not interactive or not _ask_yes_no("%s，是否备份后更新" % exc.details.get("path", "QMT 文件"), False):
                 raise
-            bundle = generate_qmt_bundle(config_path, account.alias, account_id, overwrite=True)
+            bundle = generate_qmt_bundle(
+                config_path, account.alias, account_id,
+                overwrite=True,
+                reset_profile=reset_profile,
+                reset_profile_confirmation=args.confirm_reset_profile,
+            )
         bundles.append(bundle)
         if interactive:
             print("已生成 %s 的 QMT 文件: %s" % (account.alias, bundle["directory"]))
+            if bundle["profile_preserved"]:
+                print("已保留现有签名 Profile: %s" % bundle["mapping_profile"])
+            elif bundle["profile_reset"]:
+                print("已按专用确认重置 Profile，并为原文件创建时间戳备份。")
     if interactive:
         print("\n[向导 4/5] 合并 MCP 并保存启动器配置")
         print("如需修改 mcp.json，会先在同目录创建带时间戳的 .bak 备份。")
@@ -1186,7 +1247,15 @@ def build_parser():
     setup.add_argument("--shortcut-dir")
     setup.add_argument("--no-shortcuts", action="store_true")
     setup.add_argument("--non-interactive", action="store_true")
-    setup.add_argument("--force", action="store_true")
+    setup.add_argument(
+        "--force", action="store_true",
+        help="备份后覆盖变化的 Adapter/配置文件；不会重置已有 Profile",
+    )
+    setup.add_argument(
+        "--reset-profile", action="append", default=[], metavar="ACCOUNT_ALIAS",
+        help="重置指定账户的 Profile；可重复使用，且必须提供专用确认词",
+    )
+    setup.add_argument("--confirm-reset-profile", metavar=RESET_PROFILE_CONFIRMATION)
     start = sub.add_parser("start", help="在当前窗口启动 Worker")
     start.add_argument("--config")
     start.add_argument("--human", action="store_true", help="输出适合桌面窗口阅读的中文说明")

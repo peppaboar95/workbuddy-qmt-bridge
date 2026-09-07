@@ -101,7 +101,8 @@ echo [Step 3/4] Starting the guided configuration.
 echo The wizard will tell you when input is required.
 echo Press Enter to accept a value shown in [brackets].
 echo For a QMT account ID, leaving it empty skips QMT file generation for that account.
-echo Existing bridge settings are reused; changed generated files require confirmation.
+echo Existing bridge settings and QMT Profiles are preserved.
+echo Changed Adapter/config files require confirmation; this installer never resets a Profile.
 echo.
 %PYTHON_CMD% -m workbuddy_qmt.manager setup
 if errorlevel 1 (

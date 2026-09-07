@@ -2,6 +2,23 @@
 
 本项目的重要变化记录在此。版本号遵循 Semantic Versioning。
 
+## 0.3.2 - 2026-09-08
+
+### Fixed
+
+- 修复重复运行安装/配置向导时，通用覆盖确认可能把已签名 Profile 重置为未验证模板的问题；
+- `setup --force` 现在只覆盖变化的 Adapter 和配置文件，不再覆盖已有 `qmt_profile.json`。
+
+### Safety
+
+- 已有 Profile 默认始终保留；
+- 重置必须通过 `--reset-profile <账户别名>` 明确指定目标，并同时提供 `--confirm-reset-profile RESET-QMT-PROFILE`；
+- 确认重置前仍会为原 Profile 创建带时间戳的备份。
+
+### Tests
+
+- 新增安装向导、强制更新、错误确认、显式重置和备份恢复共 6 项 Profile 安全回归测试。
+
 ## 0.3.1 - 2026-09-07
 
 ### Changed

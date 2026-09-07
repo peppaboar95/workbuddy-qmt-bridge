@@ -2,7 +2,7 @@
 
 本文面向从发布 ZIP 安装的 Windows 用户。源码开发、接口字段和完整风控设计请查看项目 `README.md`。
 
-当前发布版本为 `0.3.1`。这是不改变交易、风控、数据库 schema、配置或 Adapter 协议的维护版本。
+当前发布版本为 `0.3.2`。这是 Profile 升级保护修复版本，不改变交易、风控、数据库 schema、配置或 Adapter 协议。
 
 ## 一、安装前准备
 
@@ -83,6 +83,20 @@
 
 - Worker 和 QMT Adapter：`OBSERVE_ONLY`；
 - Profile：`verified=false`、没有可执行数字映射。
+
+### 已有 Profile 的升级保护
+
+从 0.3.2 开始，重复运行安装向导、`setup` 或 `setup --force` 都会原样保留已有 `qmt_profile.json`。通用的“备份后更新”确认只适用于变化的 Adapter/配置文件，不能再重置 Profile。
+
+只有确实需要废弃现有 P0 映射时，才可在停止 Worker 和对应 QMT 策略后运行以下命令。账户别名必须明确指定；重置前会创建带时间戳的 Profile 备份：
+
+```powershell
+workbuddy-qmt setup `
+  --reset-profile main_stock `
+  --confirm-reset-profile RESET-QMT-PROFILE
+```
+
+`--reset-profile` 可重复指定多个已启用账户。缺少专用确认词、确认词不匹配、账户未知或账户未启用时，命令都会在修改 Profile 前失败。
 
 ### 4. MCP 和启动器配置
 
@@ -476,7 +490,7 @@ python -m workbuddy_qmt.console --config "<runtime>\config\bridge.json" `
 
 ### Adapter/Profile 不同步
 
-重新运行首次配置生成当前路径和风险参数对应的 bundle。需要交易的 Profile 必须重新完成 P0、同步三个 `expected_*` 字段并使用本机密钥签名。
+重新运行首次配置可更新当前路径和风险参数对应的 Adapter/配置，同时保留现有 Profile。如果账户、构建或三个 `expected_*` 绑定确实发生变化，系统会失败关闭；此时应先核对变化原因。只有决定废弃旧 P0 映射时，才使用专用 Profile 重置命令，然后重新完成 P0、同步绑定并使用本机密钥签名。
 
 ### 路径不能用 GBK 表示
 
@@ -542,11 +556,11 @@ python -m workbuddy_qmt.console --config "<runtime>\config\bridge.json" `
 - 如果升级修改了数据库 schema、配置、Adapter 或 Profile，应停止 Worker/QMT 后整体恢复升级前备份，不能只回退 wheel。
 - 回退后固定从 `OBSERVE_ONLY` 启动，重新检查数据库、队列、Adapter、Profile 和签名，不复用升级期间产生的 LIVE 授权。
 
-### 当前 0.3.1 的升级方法
+### 当前 0.3.2 的升级方法
 
-从 0.3.0 升级到 0.3.1，只需停止旧 Worker，运行新版 `首次安装与配置.cmd` 覆盖安装 wheel，然后重启 Worker 和 WorkBuddy。数据库 schema、`bridge.json`、Profile 和 Adapter 协议均未变化；现有 QMT Adapter 可以继续使用，如需让部署源码与 wheel 完全一致，可在保持 `OBSERVE_ONLY` 时重新生成并部署 Adapter。
+从 0.3.0 或 0.3.1 升级到 0.3.2，只需停止旧 Worker，运行新版 `首次安装与配置.cmd` 覆盖安装 wheel，然后重启 Worker 和 WorkBuddy。新版向导会保留已有 Profile，即使确认更新 Adapter/配置或使用 `setup --force` 也不会清空 Profile。数据库 schema、`bridge.json`、Profile schema 和 Adapter 协议均未变化，不需要仅为本次升级重新签名。
 
-从 0.2.5 或更早版本直接升级到 0.3.1 时，还必须执行下面列出的 0.3.0 协议与数据库迁移步骤。
+从 0.2.5 或更早版本直接升级到 0.3.2 时，还必须执行下面列出的 0.3.0 协议与数据库迁移步骤。
 
 ### 0.3.0 的特殊升级要求
 
