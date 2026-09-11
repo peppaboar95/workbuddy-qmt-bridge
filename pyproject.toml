@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "workbuddy-qmt-bridge"
-version = "0.3.3"
+version = "0.3.4"
 description = "A fail-closed bridge between WorkBuddy MCP and QMT embedded Python"
 readme = "README.md"
 requires-python = ">=3.10"

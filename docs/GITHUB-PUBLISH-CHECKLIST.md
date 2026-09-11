@@ -21,12 +21,14 @@
 - [ ] 禁止强制推送和删除 main；
 - [ ] 确认 Actions 权限保持最小化，默认 GITHUB_TOKEN 仅 contents: read。
 
-## v0.3.3 Release
+## v0.3.4 Release
 
-- [ ] 创建带注释 Tag v0.3.3；
+- [ ] 创建带注释 Tag v0.3.4；
 - [ ] 先创建 Draft Release，不立即发布；
 - [ ] 上传 wheel、安装 ZIP、ZIP 单独哈希和 SHA256SUMS.txt；
 - [ ] 从 Draft Release 下载资产并在新的临时目录复核哈希；
+- [ ] 在解压目录运行 `安装、升级或修复.cmd --verify-only`；
+- [ ] 在隔离目录完成 setup、重复 setup、verify 和签名 Profile 保留检查；
 - [ ] 确认 Release 明确说明软件 P1 不等于目标账户现场验收；
 - [ ] 确认信用自动交易默认关闭；
 - [ ] 确认发布资产中不存在旧 wheel 或同名错误 ZIP；

@@ -6,9 +6,21 @@ WorkBuddy/MCP 与大 QMT 内置 Python 之间的本机、失败关闭型交易�
 >
 > 本项目能够触发模拟或真实资金账户的委托，不构成投资建议，也不保证盈利。默认模式为 OBSERVE_ONLY。任何真实资金部署都必须先完成目标 QMT 版本、券商柜台、账户字段、委托回报、撤单与恢复流程的现场验收。仓库中的示例映射不能直接用于实盘。
 
+## 5 分钟只读上手
+
+首次目标只有一个：让 WorkBuddy 能查询 QMT，同时保持 `OBSERVE_ONLY`，不实际报单。
+
+1. 从 [GitHub Releases](https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/latest) 下载完整 ZIP 并解压到独立目录；
+2. 双击 `安装、升级或修复.cmd`，安装器会自动校验 wheel 哈希并启动中文配置向导；
+3. 按自动打开的账户目录中的 `部署说明.txt`，把 `qmt_adapter.py` 放入对应的大 QMT 策略并启动；
+4. 双击桌面的 `启动QMT桥接.cmd`，直接按 Enter 使用安全默认模式 `OBSERVE_ONLY`；
+5. 双击 `验证QMT桥接.cmd`。所有项目显示“完成”后，重启 WorkBuddy 并调用 `qmt_health`。
+
+完整图文步骤见 [快速开始](docs/QUICKSTART.zh-CN.md)。首次只读连接不需要签名 Profile，也不需要理解人工实盘或有限自动交易。
+
 ## 当前版本
 
-- 版本：0.3.3
+- 版本：0.3.4
 - 阶段：P1 LIMITED_AUTO 软件控制面完成
 - MCP 工具：29 个
 - Python：Worker 需要 3.10 或更高版本
@@ -43,19 +55,19 @@ SIM_SIGNAL 不是“只生成信号但不下单”。如果错误连接到真实
 
 ## 安装
 
-普通用户优先从 GitHub Releases 下载安装 ZIP、ZIP 单独哈希和总哈希清单：
+普通用户优先从 [GitHub Releases](https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/latest) 下载完整 ZIP。安装器会自动核验 ZIP 内 wheel 的 SHA-256：
 
-- workbuddy-qmt-bridge-0.3.3.zip
-- workbuddy-qmt-bridge-0.3.3.zip.sha256
+- workbuddy-qmt-bridge-0.3.4.zip
+- workbuddy-qmt-bridge-0.3.4.zip.sha256
 - SHA256SUMS.txt
 
-核对哈希后解压 ZIP，双击“首次安装与配置.cmd”。需要手工安装 wheel 时，下载：
+完整解压后双击 `安装、升级或修复.cmd`。旧名称 `首次安装与配置.cmd` 仍作为兼容入口。需要手工安装 wheel 时，下载：
 
-- workbuddy_qmt_bridge-0.3.3-py3-none-any.whl
+- workbuddy_qmt_bridge-0.3.4-py3-none-any.whl
 
 Windows PowerShell：
 
-    python -m pip install .\workbuddy_qmt_bridge-0.3.3-py3-none-any.whl
+    python -m pip install .\workbuddy_qmt_bridge-0.3.4-py3-none-any.whl
     workbuddy-qmt setup
 
 从 0.3.2 开始，重复运行 setup 或使用 `setup --force` 都会保留已有 `qmt_profile.json`。有意重置时必须指定账户，并提供专用确认词：
@@ -115,6 +127,12 @@ runtime、数据库、WAL/SHM、日志、队列、执行日志、签名 Profile�
 
 ## 文档
 
+- 快速开始：docs/QUICKSTART.zh-CN.md
+- 日常使用：docs/DAILY-USE.zh-CN.md
+- 升级、备份与恢复：docs/UPGRADE-RECOVERY.zh-CN.md
+- P0/P1 高级配置：docs/P0-P1-ADVANCED.zh-CN.md
+- 排障与脱敏诊断：docs/TROUBLESHOOTING.zh-CN.md
+- 兼容性矩阵：docs/COMPATIBILITY.zh-CN.md
 - **在线 API 参考（GitHub Pages）**：https://peppaboar95.github.io/workbuddy-qmt-bridge/
   - 单文件离线 HTML，零外部依赖；覆盖全部 29 个 MCP 工具、错误码、风控原因码与配置参考。可另存为 `.html` 本地打开。
 - 发布与安装：docs/README-RELEASE.zh-CN.md

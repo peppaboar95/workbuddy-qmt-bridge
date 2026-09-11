@@ -2,6 +2,30 @@
 
 本项目的重要变化记录在此。版本号遵循 Semantic Versioning。
 
+## 0.3.4 - 2026-09-11
+
+### Added
+
+- 5 分钟只读快速开始、任务型文档和兼容性矩阵；
+- `verify`、`open`、`upgrade-check`、`support-bundle --redact`；
+- `account list/enable/disable/configure`，支持已有环境安全调整账户；
+- 每账户 QMT 部署说明和桌面验证/打开目录入口。
+
+### Changed
+
+- 安装入口更名为“安装、升级或修复”，旧名称继续兼容；
+- 安装 wheel 前自动核验 Release 内 SHA-256；
+- 向导非法 Y/N 输入会重新询问，完成后自动打开 QMT 文件目录；
+- QMT 配置路径使用 ASCII 转义，支持非 GBK Unicode 路径；
+- Release ZIP CI 增加隔离首装、重复升级和 Profile 保留检查。
+
+### Safety
+
+- 所有新验收与版本检查命令均不开放交易；
+- 账户停用保留文件和 Profile，并要求专用确认词；
+- 脱敏诊断包不包含日志正文、数据库、Token、密钥、完整账户号或 Profile 内容；
+- setup、升级和强制重新生成继续默认保留已有签名 Profile。
+
 ## 0.3.3 - 2026-09-08
 
 ### Fixed

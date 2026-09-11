@@ -39,6 +39,11 @@ $expectedWheel = "workbuddy_qmt_bridge-$Version-py3-none-any.whl"
 $zipName = "workbuddy-qmt-bridge-$Version.zip"
 $releaseNotesName = "RELEASE-v$Version.md"
 $releaseNotesPath = Join-Path $repoRoot "docs\$releaseNotesName"
+$installerName = "安装、升级或修复.cmd"
+$legacyInstallerName = "首次安装与配置.cmd"
+$installerPath = Join-Path $repoRoot $installerName
+$legacyInstallerPath = Join-Path $repoRoot $legacyInstallerName
+$quickStartPath = Join-Path $repoRoot "docs\QUICKSTART.zh-CN.md"
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $repoRoot "dist"
@@ -50,6 +55,11 @@ if (-not (Test-Path -LiteralPath $initPath -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf)) {
     throw "Release notes not found: $releaseNotesPath"
+}
+foreach ($requiredSource in @($installerPath, $legacyInstallerPath, $quickStartPath)) {
+    if (-not (Test-Path -LiteralPath $requiredSource -PathType Leaf)) {
+        throw "Release source file not found: $requiredSource"
+    }
 }
 
 $initText = Get-Content -LiteralPath $initPath -Raw
@@ -98,15 +108,24 @@ try {
     New-Item -ItemType Directory -Path $stageFull | Out-Null
 
     Copy-Item -LiteralPath $wheelPath -Destination $stageFull
-    $installerCandidates = @(Get-ChildItem -LiteralPath $repoRoot -File -Filter "*.cmd")
-    if ($installerCandidates.Count -ne 1) {
-        throw "Expected exactly one CMD installer in the repository root; found $($installerCandidates.Count)"
-    }
-    Copy-Item -LiteralPath $installerCandidates[0].FullName -Destination $stageFull
+    Copy-Item -LiteralPath $installerPath -Destination $stageFull
+    Copy-Item -LiteralPath $legacyInstallerPath -Destination $stageFull
     Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $stageFull
     Copy-Item -LiteralPath $releaseNotesPath -Destination $stageFull
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\README-RELEASE.zh-CN.md") -Destination (Join-Path $stageFull "README-RELEASE.zh-CN.md")
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\P1-VALIDATION.zh-CN.md") -Destination (Join-Path $stageFull "P1-VALIDATION.zh-CN.md")
+    Copy-Item -LiteralPath $quickStartPath -Destination (Join-Path $stageFull "快速开始.md")
+    $taskDocs = Join-Path $stageFull "docs"
+    New-Item -ItemType Directory -Path $taskDocs | Out-Null
+    foreach ($taskDoc in @(
+        "DAILY-USE.zh-CN.md",
+        "UPGRADE-RECOVERY.zh-CN.md",
+        "P0-P1-ADVANCED.zh-CN.md",
+        "TROUBLESHOOTING.zh-CN.md",
+        "COMPATIBILITY.zh-CN.md"
+    )) {
+        Copy-Item -LiteralPath (Join-Path $repoRoot "docs\$taskDoc") -Destination $taskDocs
+    }
     Copy-Item -LiteralPath (Join-Path $repoRoot "examples") -Destination (Join-Path $stageFull "examples") -Recurse
 
     $wheelHash = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -122,14 +141,17 @@ try {
     )
 
     $requiredEntries = @(
-        $installerCandidates[0].Name,
+        $installerName,
+        $legacyInstallerName,
         "LICENSE",
+        "快速开始.md",
         "README-RELEASE.zh-CN.md",
         "P1-VALIDATION.zh-CN.md",
         $releaseNotesName,
         "SHA256SUMS.txt",
         $expectedWheel,
-        "examples/README.md"
+        "examples/README.md",
+        "docs/COMPATIBILITY.zh-CN.md"
     )
     $archive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
     try {

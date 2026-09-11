@@ -1,16 +1,20 @@
 import argparse
 import ctypes
 import datetime as dt
+import hashlib
 import json
 import locale
 import os
+import platform
 import re
 import shutil
 import socket
 import sys
 import urllib.error
 import urllib.request
+import zipfile
 
+from . import __version__
 from .bootstrap import initialize
 from .config import load_config
 from .console import run as run_console_command
@@ -25,6 +29,9 @@ MCP_SERVER_NAME = "qmt-bridge"
 SAFE_ALIAS_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 SAFE_QMT_ACCOUNT_RE = re.compile(r"^[A-Za-z0-9_.-]{4,64}$")
 RESET_PROFILE_CONFIRMATION = "RESET-QMT-PROFILE"
+DISABLE_ACCOUNT_CONFIRMATION = "DISABLE-ACCOUNT"
+LATEST_RELEASE_API = "https://api.github.com/repos/peppaboar95/workbuddy-qmt-bridge/releases/latest"
+LATEST_RELEASE_PAGE = "https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/latest"
 
 
 class ManagerError(Exception):
@@ -168,6 +175,34 @@ def _runtime_root_from_config(config_path):
     return os.path.dirname(os.path.dirname(os.path.abspath(config_path)))
 
 
+def _deployment_guide(account, account_dir, script_path, adapter_config_path, profile_path):
+    lines = [
+        "WorkBuddy-QMT Bridge - QMT 部署说明",
+        "",
+        "账户别名: %s" % account.alias,
+        "账户类型: %s" % account.account_type,
+        "",
+        "请按顺序完成：",
+        "1. 在大 QMT 中为本账户创建独立策略实例。",
+        "2. 将 qmt_adapter.py 的完整内容复制到该策略编辑器；脚本中的配置路径已自动写好，不要手工修改。",
+        "3. 保持 qmt_adapter.json 中的 qmt_mode=OBSERVE_ONLY。",
+        "4. 确认策略绑定的是安装向导中填写的账户，然后手工启动策略。",
+        "5. 启动桌面的“启动QMT桥接.cmd”，再运行“查看QMT桥接状态.cmd”。",
+        "6. 看到 Worker 和本账户 Adapter 均已就绪，才算完成首次只读连接。",
+        "",
+        "文件位置：",
+        "- 账户目录: %s" % account_dir,
+        "- 策略源码: %s" % script_path,
+        "- Adapter 配置: %s" % adapter_config_path,
+        "- Profile: %s" % profile_path,
+        "",
+        "安全提示：默认 OBSERVE_ONLY 不会实际报单。完成目标 QMT/券商环境的 P0 验证前，不要切换到其他模式。",
+        "不要分享本目录中的账户号、Profile、密钥路径或诊断数据。",
+        "",
+    ]
+    return "\r\n".join(lines).encode("utf-8-sig")
+
+
 def _adapter_template_path():
     return os.path.join(os.path.dirname(__file__), "assets", "qmt_embedded_adapter.py")
 
@@ -280,6 +315,7 @@ def generate_qmt_bundle(
     adapter_config_path = os.path.join(account_dir, "qmt_adapter.json")
     profile_path = os.path.join(account_dir, "qmt_profile.json")
     script_path = os.path.join(account_dir, "qmt_adapter.py")
+    guide_path = os.path.join(account_dir, "部署说明.txt")
     strategy_name = "WorkBuddyQMT" if account.account_type == "STOCK" else "WorkBuddyQMTCredit"
     profile = {
         "protocol_version": "1.0",
@@ -310,20 +346,20 @@ def generate_qmt_bundle(
     marker = 'ADAPTER_CONFIG_PATH = r"D:\\workbuddy-qmt-bridge\\config\\qmt_adapter.json"'
     if template.count(marker) != 1:
         raise ManagerError("ASSET_INVALID", "QMT Adapter 模板中的配置路径标记不唯一", {"path": template_path})
-    if '"' in adapter_config_path:
-        raise ManagerError("INVALID_RUNTIME_PATH", "运行目录不能包含双引号", {"path": adapter_config_path})
-    script = template.replace(marker, 'ADAPTER_CONFIG_PATH = r"%s"' % adapter_config_path)
+    path_literal = json.dumps(adapter_config_path, ensure_ascii=True)
+    script = template.replace(marker, "ADAPTER_CONFIG_PATH = %s" % path_literal)
     try:
         script_bytes = script.encode("gbk")
     except UnicodeEncodeError:
         raise ManagerError(
             "QMT_PATH_ENCODING_ERROR",
-            "QMT 配置路径无法使用 GBK 编码，请选择仅含 ASCII/常用中文字符的运行目录",
+            "QMT Adapter 模板包含无法使用 GBK 编码的内容",
             {"path": adapter_config_path},
         )
     generated_outputs = {
         adapter_config_path: _pretty_json(adapter_config),
         script_path: script_bytes,
+        guide_path: _deployment_guide(account, account_dir, script_path, adapter_config_path, profile_path),
     }
     profile_bytes = _pretty_json(profile)
     profile_exists = os.path.exists(profile_path)
@@ -344,7 +380,7 @@ def generate_qmt_bundle(
         result_by_path[profile_path] = {
             "path": profile_path, "changed": False, "backup": None, "preserved": True,
         }
-    results = [result_by_path[path] for path in (adapter_config_path, profile_path, script_path)]
+    results = [result_by_path[path] for path in (adapter_config_path, profile_path, script_path, guide_path)]
     return {
         "account_alias": alias,
         "account_type": account.account_type,
@@ -352,6 +388,7 @@ def generate_qmt_bundle(
         "adapter_config": adapter_config_path,
         "mapping_profile": profile_path,
         "adapter_script": script_path,
+        "deployment_guide": guide_path,
         "profile_preserved": profile_exists and not reset_profile,
         "profile_reset": profile_exists and reset_profile,
         "files": results,
@@ -396,7 +433,7 @@ def _adapter_sync_issues(config, account, script_path, adapter_path, profile_pat
     try:
         with open(script_path, "r", encoding="gbk") as stream:
             script = stream.read()
-        expected_marker = 'ADAPTER_CONFIG_PATH = r"%s"' % os.path.abspath(adapter_path)
+        expected_marker = "ADAPTER_CONFIG_PATH = %s" % json.dumps(os.path.abspath(adapter_path), ensure_ascii=True)
         if script.count(expected_marker) != 1:
             issues.append("qmt_adapter.py 未绑定当前 qmt_adapter.json 绝对路径")
     except (OSError, UnicodeError) as exc:
@@ -469,6 +506,48 @@ def infer_qmt_account_id(config_path, account):
     return ""
 
 
+def _require_worker_stopped(config_path):
+    probe = probe_worker(config_path)
+    if probe.get("state") == "RUNNING":
+        raise ManagerError(
+            "WORKER_RUNNING",
+            "修改账户配置前必须先停止 Worker；QMT 策略也应同时停止",
+            {"config": os.path.abspath(config_path)},
+        )
+    if probe.get("state") == "CONFLICT":
+        raise ManagerError(
+            "PORT_CONFLICT",
+            "Worker 端口被其他进程占用，确认并关闭相关进程后再修改账户配置",
+            {"config": os.path.abspath(config_path)},
+        )
+
+
+def set_account_enabled(config_path, account_alias, enabled):
+    config_path = os.path.abspath(config_path)
+    config = load_config(config_path)
+    account = config.accounts.get(account_alias)
+    if not account:
+        raise ManagerError("UNKNOWN_ACCOUNT", "Bridge 配置中找不到账户", {"account_alias": account_alias})
+    if account.enabled == bool(enabled):
+        return {"changed": False, "backup": None, "account_alias": account.alias, "enabled": account.enabled}
+    raw = _read_json_object(config_path, "Bridge 配置")
+    for item in raw.get("accounts", []):
+        if item.get("alias") == account.alias:
+            item["enabled"] = bool(enabled)
+            break
+    else:
+        raise ManagerError("UNKNOWN_ACCOUNT", "Bridge 配置中找不到账户", {"account_alias": account_alias})
+    backup = _backup(config_path)
+    try:
+        atomic_write_json(config_path, raw)
+        load_config(config_path)
+        initialize(_runtime_root_from_config(config_path), None)
+    except Exception:
+        shutil.copy2(backup, config_path)
+        raise
+    return {"changed": True, "backup": backup, "account_alias": account.alias, "enabled": bool(enabled)}
+
+
 def _desktop_dir():
     if os.name == "nt":
         try:
@@ -481,6 +560,19 @@ def _desktop_dir():
     return os.path.join(os.path.expanduser("~"), "Desktop")
 
 
+def open_local_path(path):
+    path = os.path.abspath(path)
+    if not os.path.exists(path):
+        raise ManagerError("PATH_NOT_FOUND", "要打开的路径不存在", {"path": path})
+    if os.name != "nt" or not hasattr(os, "startfile"):
+        return {"path": path, "opened": False, "message": "当前系统不支持自动打开，请手工打开该路径"}
+    try:
+        os.startfile(path)
+    except OSError as exc:
+        raise ManagerError("OPEN_PATH_FAILED", "无法打开路径: %s" % exc, {"path": path})
+    return {"path": path, "opened": True}
+
+
 def _cmd_value(value):
     return str(value).replace("%", "%%").replace('"', '""')
 
@@ -489,7 +581,7 @@ def create_shortcuts(launcher_path, target_dir=None, python_executable=None, ove
     launcher_path = os.path.abspath(launcher_path)
     target_dir = os.path.abspath(target_dir or _desktop_dir())
     python_executable = os.path.abspath(python_executable or sys.executable)
-    prefix = '@echo off\r\n'
+    prefix = '@echo off\r\nchcp 65001 >nul\r\nset "PYTHONUTF8=1"\r\n'
     command = '"%s" -m workbuddy_qmt.manager --launcher-config "%s"' % (
         _cmd_value(python_executable), _cmd_value(launcher_path),
     )
@@ -511,6 +603,17 @@ def create_shortcuts(launcher_path, target_dir=None, python_executable=None, ove
             "echo Diagnostics will run automatically only when the status is abnormal.\r\n"
             "echo.\r\n" + command + " status --human\r\n"
             "echo.\r\npause\r\n"
+        ),
+        "验证QMT桥接.cmd": (
+            prefix + "title WorkBuddy QMT Bridge Verify\r\n"
+            "echo Verifying the complete read-only bridge setup...\r\n"
+            "echo.\r\n" + command + " verify --human\r\n"
+            "echo.\r\npause\r\n"
+        ),
+        "打开QMT配置目录.cmd": (
+            prefix + "title WorkBuddy QMT Bridge Files\r\n"
+            + command + " open qmt-ready --human\r\n"
+            "if errorlevel 1 pause\r\n"
         ),
     }
     results = []
@@ -1012,6 +1115,309 @@ def print_doctor_human(report):
         print("- 重新运行首次配置；不要手工复制其他电脑的密钥或令牌。")
 
 
+def verify_report(config_path, launcher_path=None):
+    config_path = os.path.abspath(config_path)
+    diagnostic = doctor_report(config_path, launcher_path)
+    checks = list(diagnostic.get("checks", []))
+    worker = diagnostic.get("worker") or {"state": "ERROR", "message": "无法检查 Worker"}
+    worker_running = worker.get("state") == "RUNNING"
+    checks.append({
+        "name": "worker_running",
+        "ok": worker_running,
+        "detail": "Worker 正在运行" if worker_running else worker.get("message", "Worker 未运行"),
+    })
+    status = None
+    if worker_running:
+        status = status_report(config_path)
+        health = ((worker.get("response") or {}).get("data") or {})
+        by_alias = {
+            item.get("account_alias"): item
+            for item in health.get("accounts", [])
+            if isinstance(item, dict) and item.get("account_alias")
+        }
+        for account in load_config(config_path).accounts.values():
+            if not account.enabled:
+                continue
+            account_health = by_alias.get(account.alias) or {}
+            ready = bool(account_health.get("ready"))
+            checks.append({
+                "name": "adapter:%s" % account.alias,
+                "ok": ready,
+                "detail": "Adapter 已连接，可用" if ready else "Adapter 尚未就绪；请检查 QMT 登录和策略实例",
+            })
+        for issue in status.get("issues", []):
+            if issue.get("code") in {"ADAPTER_NOT_READY", "ACCOUNT_STATUS_MISSING"}:
+                continue
+            checks.append({
+                "name": "runtime:%s" % issue.get("code", "UNKNOWN"),
+                "ok": False,
+                "detail": issue.get("message", "运行状态异常"),
+            })
+    return {
+        "ok": all(item.get("ok") for item in checks),
+        "version": __version__,
+        "config": config_path,
+        "checks": checks,
+        "worker": worker,
+        "status": status,
+        "workbuddy_note": "MCP 配置文件已检查；WorkBuddy 是否已重新加载该配置，需要在重启 WorkBuddy 后由 qmt_health 确认。",
+    }
+
+
+def print_verify_human(report):
+    _human_header("WorkBuddy-QMT 首次只读连接验证")
+    labels = {
+        "python": "Python 与软件包",
+        "bridge_config": "Bridge 配置",
+        "worker_token": "Worker 本机令牌",
+        "message_keys": "QMT 消息密钥",
+        "worker": "Worker 端口",
+        "workbuddy_mcp": "WorkBuddy MCP 配置",
+        "worker_running": "Worker 正在运行",
+    }
+    for check in report.get("checks", []):
+        name = check.get("name", "unknown")
+        if name.startswith("qmt_bundle:"):
+            label = "QMT 文件: %s" % name.split(":", 1)[1]
+        elif name.startswith("adapter:"):
+            label = "QMT Adapter: %s" % name.split(":", 1)[1]
+        elif name.startswith("runtime:"):
+            label = "运行状态: %s" % name.split(":", 1)[1]
+        else:
+            label = labels.get(name, name)
+        print("[%s] %s" % ("完成" if check.get("ok") else "待处理", label))
+        print("       %s" % check.get("detail", ""))
+    print("\n验证结论：")
+    if report.get("ok"):
+        print("首次只读连接已完成。当前仍应保持 OBSERVE_ONLY，不会实际报单。")
+        print("下一步：重启 WorkBuddy，在对话中调用 qmt_health，再查询账户和持仓。")
+    else:
+        print("尚未完成首次只读连接。先处理上方标记为“待处理”的项目。")
+        print("可双击桌面的“查看QMT桥接状态.cmd”获取进一步诊断。")
+    print("\n%s" % report.get("workbuddy_note", ""))
+
+
+def _release_version_tuple(value):
+    matched = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", str(value or "").strip())
+    if not matched:
+        return None
+    return tuple(int(part) for part in matched.groups())
+
+
+def upgrade_check_report(timeout=4.0):
+    request = urllib.request.Request(
+        LATEST_RELEASE_API,
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "workbuddy-qmt-bridge/%s" % __version__},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            release = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
+        raise ManagerError("UPGRADE_CHECK_FAILED", "无法查询 GitHub 最新版本: %s" % exc)
+    latest = release.get("tag_name")
+    current_tuple = _release_version_tuple(__version__)
+    latest_tuple = _release_version_tuple(latest)
+    if not latest_tuple:
+        raise ManagerError("UPGRADE_CHECK_FAILED", "GitHub 最新 Release 版本号无法识别", {"tag_name": latest})
+    if current_tuple == latest_tuple:
+        state = "UP_TO_DATE"
+    elif current_tuple and current_tuple < latest_tuple:
+        state = "UPDATE_AVAILABLE"
+    else:
+        state = "AHEAD_OF_RELEASE"
+    return {
+        "ok": True,
+        "state": state,
+        "current_version": __version__,
+        "latest_version": str(latest).lstrip("v"),
+        "release_url": release.get("html_url") or LATEST_RELEASE_PAGE,
+        "automatic_update": False,
+    }
+
+
+def print_upgrade_check_human(report):
+    _human_header("WorkBuddy-QMT 版本检查")
+    print("当前版本: %s" % report["current_version"])
+    print("最新版本: %s" % report["latest_version"])
+    if report["state"] == "UP_TO_DATE":
+        print("结论：当前已经是最新正式版本。")
+    elif report["state"] == "UPDATE_AVAILABLE":
+        print("结论：发现新版本。请先停止 Worker 和 QMT 策略并备份 runtime，再手工升级。")
+    else:
+        print("结论：当前版本高于最新正式 Release，可能是开发版本。")
+    print("Release: %s" % report["release_url"])
+    print("本命令只检查版本，不会自动下载、安装或改动配置。")
+
+
+def _account_rows(config_path):
+    config = load_config(config_path)
+    return [{
+        "alias": item.alias,
+        "account_type": item.account_type,
+        "enabled": item.enabled,
+        "adapter_instance": item.adapter_instance,
+        "qmt_bundle": os.path.join(_runtime_root_from_config(config_path), "qmt_ready", item.alias),
+    } for item in config.accounts.values()]
+
+
+def run_account_command(args, config_path):
+    config_path = os.path.abspath(config_path)
+    if args.account_command == "list":
+        result = {"ok": True, "accounts": _account_rows(config_path)}
+    else:
+        _require_worker_stopped(config_path)
+        config = load_config(config_path)
+        account = config.accounts.get(args.account_alias)
+        if not account:
+            raise ManagerError("UNKNOWN_ACCOUNT", "Bridge 配置中找不到账户", {"account_alias": args.account_alias})
+        if args.account_command == "disable":
+            if args.confirm != DISABLE_ACCOUNT_CONFIRMATION:
+                raise ManagerError(
+                    "LOCAL_CONFIRMATION_REQUIRED",
+                    "停用账户必须提供 --confirm %s；现有 QMT 文件和 Profile 会保留" % DISABLE_ACCOUNT_CONFIRMATION,
+                    {"account_alias": account.alias},
+                )
+            change = set_account_enabled(config_path, account.alias, False)
+            result = {"ok": True, "account": change, "profile_preserved": True}
+        else:
+            change = None
+            if args.account_command == "enable":
+                change = set_account_enabled(config_path, account.alias, True)
+            config = load_config(config_path)
+            account = config.accounts.get(account.alias)
+            if not account.enabled:
+                raise ManagerError(
+                    "ACCOUNT_DISABLED",
+                    "账户尚未启用，请先运行 account enable",
+                    {"account_alias": account.alias},
+                )
+            account_id = args.qmt_account_id or infer_qmt_account_id(config_path, account)
+            bundle = None
+            warnings = []
+            if account_id:
+                bundle = generate_qmt_bundle(
+                    config_path, account.alias, account_id, overwrite=args.force,
+                )
+            else:
+                warnings.append("尚未提供 QMT 账户号，账户已启用但未生成 QMT 文件")
+            result = {
+                "ok": True,
+                "account": change or {"account_alias": account.alias, "enabled": True, "changed": False},
+                "qmt_bundle": bundle,
+                "warnings": warnings,
+                "profile_preserved": bool(bundle and bundle.get("profile_preserved")),
+            }
+    if getattr(args, "human", False):
+        _human_header("WorkBuddy-QMT 账户配置")
+        if args.account_command == "list":
+            for item in result["accounts"]:
+                print("- %s (%s): %s" % (item["alias"], item["account_type"], "已启用" if item["enabled"] else "未启用"))
+                print("  QMT 目录: %s" % item["qmt_bundle"])
+        else:
+            account_result = result["account"]
+            print("账户: %s" % account_result["account_alias"])
+            print("状态: %s" % ("已启用" if account_result["enabled"] else "已停用"))
+            if result.get("qmt_bundle"):
+                print("QMT 文件: %s" % result["qmt_bundle"]["directory"])
+                print("Profile: %s" % ("已保留" if result["qmt_bundle"]["profile_preserved"] else "新建未验证模板"))
+            for warning in result.get("warnings", []):
+                print("提示: %s" % warning)
+            print("修改账户后请保持 OBSERVE_ONLY，重新启动 QMT 策略、Worker 和 WorkBuddy，再运行 verify。")
+    else:
+        print(json.dumps(result, ensure_ascii=True, indent=2))
+    return 0
+
+
+def _redact_text(value, replacements):
+    text = str(value)
+    for original, replacement in sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True):
+        if original:
+            text = text.replace(original, replacement)
+    return text
+
+
+def _redact_structure(value, replacements, key_name=""):
+    sensitive = ("token", "secret", "signature", "account_id", "qmt_account_id", "key_value")
+    if any(name in key_name.lower() for name in sensitive):
+        return "<redacted>"
+    if isinstance(value, dict):
+        return {key: _redact_structure(item, replacements, str(key)) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_structure(item, replacements, key_name) for item in value]
+    if isinstance(value, str):
+        return _redact_text(value, replacements)
+    return value
+
+
+def _file_manifest(path):
+    if not os.path.isfile(path):
+        return {"name": os.path.basename(path), "exists": False}
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(65536), b""):
+            digest.update(chunk)
+    return {
+        "name": os.path.basename(path),
+        "exists": True,
+        "size": os.path.getsize(path),
+        "sha256": digest.hexdigest(),
+    }
+
+
+def create_support_bundle(config_path, launcher_path=None, output=None, force=False):
+    config_path = os.path.abspath(config_path)
+    runtime_root = _runtime_root_from_config(config_path)
+    timestamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    output = os.path.abspath(output or os.path.join(os.getcwd(), "workbuddy-qmt-support-%s.zip" % timestamp))
+    if os.path.exists(output) and not force:
+        raise ManagerError("FILE_EXISTS", "诊断包已存在；请换一个输出路径或使用 --force", {"path": output})
+    config_raw = _read_json_object(config_path, "Bridge 配置")
+    replacements = {
+        os.path.expanduser("~"): "%USERPROFILE%",
+        runtime_root: "%RUNTIME%",
+        config_path: "%RUNTIME%\\config\\bridge.json",
+        sys.executable: "%PYTHON%",
+    }
+    diagnostic = doctor_report(config_path, launcher_path)
+    manifest = []
+    for account in load_config(config_path).accounts.values():
+        account_dir = os.path.join(runtime_root, "qmt_ready", account.alias)
+        manifest.append({
+            "account_alias": account.alias,
+            "account_type": account.account_type,
+            "enabled": account.enabled,
+            "files": [_file_manifest(os.path.join(account_dir, name)) for name in (
+                "qmt_adapter.py", "qmt_adapter.json", "qmt_profile.json", "部署说明.txt",
+            )],
+        })
+    summary = {
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "bridge_version": __version__,
+        "python_version": platform.python_version(),
+        "windows_release": platform.release(),
+        "redacted": True,
+        "contains_logs": False,
+        "contains_secrets": False,
+    }
+    entries = {
+        "README.txt": (
+            "此诊断包已经脱敏，仅包含版本、配置结构、检查结果和文件哈希。\r\n"
+            "它不包含日志正文、数据库、Worker Token、消息密钥、完整 QMT 账户号或 Profile 内容。\r\n"
+            "分享前仍请自行检查压缩包内容。\r\n"
+        ),
+        "summary.json": json.dumps(summary, ensure_ascii=False, indent=2),
+        "diagnostics.json": json.dumps(_redact_structure(diagnostic, replacements), ensure_ascii=False, indent=2),
+        "bridge-config.redacted.json": json.dumps(_redact_structure(config_raw, replacements), ensure_ascii=False, indent=2),
+        "qmt-files.json": json.dumps(manifest, ensure_ascii=False, indent=2),
+    }
+    os.makedirs(os.path.dirname(output), exist_ok=True)
+    mode = "w"
+    with zipfile.ZipFile(output, mode, compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, text in entries.items():
+            archive.writestr(name, text.encode("utf-8"))
+    return {"ok": True, "path": output, "redacted": True, "entries": sorted(entries)}
+
+
 def print_human_error(code, message, details=None):
     _human_header("操作未完成")
     print("错误代码: %s" % code)
@@ -1039,10 +1445,17 @@ def _ask(prompt, default=None):
 
 def _ask_yes_no(prompt, default=True):
     suffix = "Y/n" if default else "y/N"
-    value = input("%s [%s]: " % (prompt, suffix)).strip().lower()
-    if not value:
-        return default
-    return value in {"y", "yes", "1", "true", "是"}
+    yes_values = {"y", "yes", "1", "true", "是", "启用"}
+    no_values = {"n", "no", "0", "false", "否", "不", "禁用"}
+    while True:
+        value = input("%s [%s]: " % (prompt, suffix)).strip().lower()
+        if not value:
+            return default
+        if value in yes_values:
+            return True
+        if value in no_values:
+            return False
+        print("无法识别输入。请输入 y/yes/是 或 n/no/否；直接按 Enter 使用默认值。")
 
 
 def run_setup(args, launcher_path):
@@ -1107,6 +1520,30 @@ def run_setup(args, launcher_path):
             raise ManagerError("ACCOUNT_REQUIRED", "至少需要启用一个账户")
     config_path = initialize(runtime_root, account_types if is_new else None)
     config = load_config(config_path)
+    account_changes = []
+    if not is_new and interactive:
+        print("已有环境可在此调整账户启用状态；直接按 Enter 会保留当前选择。")
+        desired_states = {}
+        for configured_account in config.accounts.values():
+            desired_states[configured_account.alias] = _ask_yes_no(
+                "启用 %s (%s)" % (configured_account.alias, configured_account.account_type),
+                configured_account.enabled,
+            )
+        changed_aliases = [
+            alias for alias, enabled in desired_states.items()
+            if config.accounts[alias].enabled != enabled
+        ]
+        if changed_aliases:
+            disabling = [alias for alias in changed_aliases if not desired_states[alias]]
+            if disabling:
+                print("停用账户不会删除其 QMT 文件或 Profile，但重启后 Worker 将不再加载这些账户。")
+                confirmation = input("确认停用后输入 %s: " % DISABLE_ACCOUNT_CONFIRMATION).strip()
+                if confirmation != DISABLE_ACCOUNT_CONFIRMATION:
+                    raise ManagerError("LOCAL_CONFIRMATION_REQUIRED", "确认文字不匹配，未修改账户状态")
+            _require_worker_stopped(config_path)
+            for alias in changed_aliases:
+                account_changes.append(set_account_enabled(config_path, alias, desired_states[alias]))
+            config = load_config(config_path)
     unknown_reset_profiles = reset_profiles - set(config.accounts)
     if unknown_reset_profiles:
         raise ManagerError(
@@ -1181,6 +1618,7 @@ def run_setup(args, launcher_path):
     }
     save_launcher_state(launcher_path, state)
     shortcut_result = None
+    opened_qmt_ready = None
     if interactive:
         print("MCP 状态: %s" % ("已更新" if mcp_result["changed"] else "无需修改"))
         if mcp_result["backup"]:
@@ -1194,6 +1632,12 @@ def run_setup(args, launcher_path):
             target = ""
         if target != "":
             shortcut_result = create_shortcuts(launcher_path, target_dir=target, python_executable=sys.executable)
+    if interactive and not args.no_open and bundles:
+        try:
+            opened_qmt_ready = open_local_path(state["qmt_ready_dir"])
+            print("已打开 QMT 文件目录；每个账户目录中都有“部署说明.txt”。")
+        except ManagerError as exc:
+            print("未能自动打开 QMT 文件目录: %s" % exc.message)
     result = {
         "ok": True,
         "new_runtime": is_new,
@@ -1204,8 +1648,10 @@ def run_setup(args, launcher_path):
         "qmt_bundles": bundles,
         "skipped_accounts": skipped_accounts,
         "shortcuts": shortcut_result,
+        "account_changes": account_changes,
+        "opened_qmt_ready": opened_qmt_ready,
         "warnings": [] if bundles else ["尚未生成 QMT Adapter，请重新运行 setup 并填写账户号"],
-        "next_steps": ["重启 WorkBuddy", "把 qmt_ready 下的脚本分别放入大 QMT 策略实例", "双击启动QMT桥接.cmd"],
+        "next_steps": ["按账户目录中的部署说明配置并启动 QMT 策略", "双击启动QMT桥接.cmd", "运行验证QMT桥接.cmd", "重启 WorkBuddy 并调用 qmt_health"],
     }
     if interactive:
         print("\n============================================================")
@@ -1222,13 +1668,12 @@ def run_setup(args, launcher_path):
             print("桌面脚本目录: %s" % shortcut_result["directory"])
         else:
             print("未创建桌面脚本，可稍后重新运行 setup。")
-        print("\nUSER ACTION - 还需要手工完成：")
-        print("  1. 重启 WorkBuddy，让新的 qmt-bridge MCP 配置生效。")
-        print("  2. 打开 qmt_ready，为每个账户建立独立的大 QMT 策略实例。")
-        print("  3. 将对应 qmt_adapter.py 放入策略实例并手工启动策略。")
-        print("  4. 保持 OBSERVE_ONLY，完成现场映射验证和签名后再考虑交易模式。")
-        print("  5. 双击桌面的“启动QMT桥接.cmd”启动 Worker。")
-        print("  6. WorkBuddy 看不到工具时，运行“查看QMT桥接状态.cmd”；异常时会自动诊断。")
+        print("\nUSER ACTION - 完成首次只读连接：")
+        print("  1. 按账户目录中的“部署说明.txt”创建并启动 QMT 策略。")
+        print("  2. 保持 OBSERVE_ONLY，双击桌面的“启动QMT桥接.cmd”。")
+        print("  3. 双击“验证QMT桥接.cmd”，直到所有项目均显示“完成”。")
+        print("  4. 重启 WorkBuddy，调用 qmt_health，再查询账户和持仓。")
+        print("完成 P0 现场验证和 Profile 签名前，不要切换到其他模式。")
     else:
         print(json.dumps(result, ensure_ascii=True, indent=2))
     return 0
@@ -1236,6 +1681,7 @@ def run_setup(args, launcher_path):
 
 def build_parser():
     parser = argparse.ArgumentParser(description="WorkBuddy-QMT 一键配置和启动工具")
+    parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
     parser.add_argument("--launcher-config", default=default_launcher_path())
     sub = parser.add_subparsers(dest="command", required=True)
     setup = sub.add_parser("setup", help="运行首次配置向导")
@@ -1246,6 +1692,7 @@ def build_parser():
     setup.add_argument("--credit-account-id")
     setup.add_argument("--shortcut-dir")
     setup.add_argument("--no-shortcuts", action="store_true")
+    setup.add_argument("--no-open", action="store_true", help="完成后不自动打开 qmt_ready 目录")
     setup.add_argument("--non-interactive", action="store_true")
     setup.add_argument(
         "--force", action="store_true",
@@ -1271,6 +1718,41 @@ def build_parser():
     doctor = sub.add_parser("doctor", help="检查本机配置")
     doctor.add_argument("--config")
     doctor.add_argument("--human", action="store_true", help="输出适合桌面窗口阅读的中文说明")
+    verify = sub.add_parser("verify", help="验证首次只读连接是否完整")
+    verify.add_argument("--config")
+    verify.add_argument("--human", action="store_true", help="输出清晰的完成/待处理结果卡")
+    open_command = sub.add_parser("open", help="打开运行目录、QMT 文件、日志或配置")
+    open_command.add_argument("target", choices=("runtime", "qmt-ready", "logs", "config"))
+    open_command.add_argument("--config")
+    open_command.add_argument("--human", action="store_true")
+    upgrade = sub.add_parser("upgrade-check", help="只读检查 GitHub 最新正式版本")
+    upgrade.add_argument("--human", action="store_true")
+    upgrade.add_argument("--timeout", type=float, default=4.0)
+    support = sub.add_parser("support-bundle", help="生成不含日志、密钥和账户号的脱敏诊断包")
+    support.add_argument("--config")
+    support.add_argument("--output")
+    support.add_argument("--redact", action="store_true", required=True, help="确认只生成脱敏诊断包")
+    support.add_argument("--force", action="store_true")
+    support.add_argument("--human", action="store_true")
+    account = sub.add_parser("account", help="列出、启用、停用或重新配置账户")
+    account.add_argument("--config")
+    account_sub = account.add_subparsers(dest="account_command", required=True)
+    account_list = account_sub.add_parser("list", help="列出账户启用状态")
+    account_list.add_argument("--human", action="store_true")
+    account_enable = account_sub.add_parser("enable", help="启用账户并可生成 QMT 文件")
+    account_enable.add_argument("account_alias")
+    account_enable.add_argument("--qmt-account-id")
+    account_enable.add_argument("--force", action="store_true")
+    account_enable.add_argument("--human", action="store_true")
+    account_disable = account_sub.add_parser("disable", help="停用账户但保留 QMT 文件和 Profile")
+    account_disable.add_argument("account_alias")
+    account_disable.add_argument("--confirm", metavar=DISABLE_ACCOUNT_CONFIRMATION)
+    account_disable.add_argument("--human", action="store_true")
+    account_configure = account_sub.add_parser("configure", help="为已启用账户重新生成 QMT 配置")
+    account_configure.add_argument("account_alias")
+    account_configure.add_argument("--qmt-account-id", required=True)
+    account_configure.add_argument("--force", action="store_true")
+    account_configure.add_argument("--human", action="store_true")
     return parser
 
 
@@ -1279,9 +1761,45 @@ def main(argv=None):
     args = parser.parse_args(argv)
     launcher_path = os.path.abspath(args.launcher_config)
     try:
+        if args.command == "upgrade-check":
+            report = upgrade_check_report(timeout=args.timeout)
+            if args.human:
+                print_upgrade_check_human(report)
+            else:
+                print(json.dumps(report, ensure_ascii=True, indent=2))
+            return 0
         if args.command == "setup":
             return run_setup(args, launcher_path)
         config_path = resolve_bridge_config(launcher_path, args.config)
+        if args.command == "account":
+            return run_account_command(args, config_path)
+        if args.command == "open":
+            config = load_config(config_path)
+            targets = {
+                "runtime": _runtime_root_from_config(config_path),
+                "qmt-ready": os.path.join(_runtime_root_from_config(config_path), "qmt_ready"),
+                "logs": os.path.join(config.data_dir, "logs"),
+                "config": config_path,
+            }
+            result = {"ok": True}
+            result.update(open_local_path(targets[args.target]))
+            if args.human:
+                print("已打开: %s" % result["path"] if result["opened"] else result["message"] + ": " + result["path"])
+            else:
+                print(json.dumps(result, ensure_ascii=True, indent=2))
+            return 0
+        if args.command == "support-bundle":
+            report = create_support_bundle(
+                config_path, launcher_path, output=args.output, force=args.force,
+            )
+            if args.human:
+                _human_header("WorkBuddy-QMT 脱敏诊断包")
+                print("已生成: %s" % report["path"])
+                print("不包含日志正文、数据库、Token、消息密钥、完整账户号或 Profile 内容。")
+                print("发送给他人前仍请自行检查压缩包内容。")
+            else:
+                print(json.dumps(report, ensure_ascii=True, indent=2))
+            return 0
         if args.command == "start":
             return start_worker(
                 config_path,
@@ -1289,7 +1807,13 @@ def main(argv=None):
                 start_mode=args.start_mode,
                 confirm=args.confirm,
             )
-        if args.command == "status":
+        if args.command == "verify":
+            report = verify_report(config_path, launcher_path)
+            if args.human:
+                print_verify_human(report)
+            else:
+                print(json.dumps(report, ensure_ascii=True, indent=2))
+        elif args.command == "status":
             report = status_report(config_path)
             if args.human:
                 print_status_human(report)
@@ -1302,13 +1826,13 @@ def main(argv=None):
                     diagnostic = doctor_report(config_path, launcher_path)
                     print_doctor_human(diagnostic)
             else:
-                print(json.dumps(report, ensure_ascii=False, indent=2))
+                print(json.dumps(report, ensure_ascii=True, indent=2))
         else:
             report = doctor_report(config_path, launcher_path)
             if args.human:
                 print_doctor_human(report)
             else:
-                print(json.dumps(report, ensure_ascii=False, indent=2))
+                print(json.dumps(report, ensure_ascii=True, indent=2))
         return 0 if report["ok"] else 1
     except ManagerError as exc:
         if getattr(args, "human", False):
@@ -1317,7 +1841,7 @@ def main(argv=None):
             print(json.dumps({
                 "ok": False,
                 "error": {"code": exc.code, "message": exc.message, "details": exc.details},
-            }, ensure_ascii=False, indent=2), file=sys.stderr)
+            }, ensure_ascii=True, indent=2), file=sys.stderr)
         return 2
     except KeyboardInterrupt:
         return 130
@@ -1328,7 +1852,7 @@ def main(argv=None):
             print(json.dumps({
                 "ok": False,
                 "error": {"code": "UNEXPECTED_ERROR", "message": str(exc), "details": {}},
-            }, ensure_ascii=False, indent=2), file=sys.stderr)
+            }, ensure_ascii=True, indent=2), file=sys.stderr)
         return 2
 
 
