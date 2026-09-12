@@ -22,7 +22,7 @@ WorkBuddy/MCP 与大 QMT 内置 Python 之间的本机、失败关闭型交易�
 
 - 版本：0.3.4
 - 阶段：P1 LIMITED_AUTO 软件控制面完成
-- MCP 工具：29 个
+- MCP 工具：31 个（当前源码含 2 个未发布的低延迟工作流工具）
 - Python：Worker 需要 3.10 或更高版本
 - QMT Adapter：兼容 QMT 内置 Python 3.6 环境
 - 运行边界：仅绑定 127.0.0.1，不依赖 xtquant
@@ -45,6 +45,7 @@ SIM_SIGNAL 不是“只生成信号但不下单”。如果错误连接到真实
 ## 安全设计
 
 - preview_trade 与 submit_trade_intent 两阶段提交；
+- 单笔优先使用 prepare_trade 合并快照刷新与预览；提交后使用一次 wait_trade_intent 有界等待；
 - 提交时重新执行完整硬风控并比较风险决策指纹；
 - Worker 与 QMT Adapter 双端检查账户、模式、签名、TTL 和授权代次；
 - LIMITED_AUTO 许可绑定账户、证券、动作、策略/规则版本、交易窗口、下单类型及多层额度；
@@ -92,6 +93,14 @@ Windows PowerShell：
 
 MANUAL_LIVE 的 1–60 分钟时间授权只免除逐笔人工审批；每笔仍必须重新同步、预览并通过硬风控。LIMITED_AUTO 的许可最长 720 分钟，但不能跨交易日，并受完整策略边界和累计预算约束。
 
+## 低延迟调用建议
+
+- 单笔交易优先调用 `prepare_trade`，它会把账户、持仓、委托、成交和目标行情合并成一次同步，等待新快照后直接返回预览；它不会提交订单；
+- 多标的交易先用一次 `request_sync`，把同一账户的全部目标放入 `symbols`，随后复用账户和持仓快照逐笔 `preview_trade`，不要按标的重复同步；
+- `submit_trade_intent` 返回 `QUEUED` 后，只调用一次 `wait_trade_intent`。如果等待超时，稍后按 `intent_id` 查询，绝不重新提交预览；
+- 新生成 Adapter 的命令轮询为 500ms，Worker 回报摄取为 250ms。已有部署必须重新生成并部署 `qmt_adapter.py`/`qmt_adapter.json` 后才会使用新的 Adapter 周期；
+- 上述优化不减少预览、确认、提交时硬风控或 Adapter 报单前复核。
+
 ## LIMITED_AUTO P1 流程
 
 1. 在本机把 Worker 和对应 Adapter 切换为 LIMITED_AUTO；
@@ -134,7 +143,7 @@ runtime、数据库、WAL/SHM、日志、队列、执行日志、签名 Profile�
 - 排障与脱敏诊断：docs/TROUBLESHOOTING.zh-CN.md
 - 兼容性矩阵：docs/COMPATIBILITY.zh-CN.md
 - **在线 API 参考（GitHub Pages）**：https://peppaboar95.github.io/workbuddy-qmt-bridge/
-  - 单文件离线 HTML，零外部依赖；覆盖全部 29 个 MCP 工具、错误码、风控原因码与配置参考。可另存为 `.html` 本地打开。
+  - 单文件离线 HTML，零外部依赖；当前源码文档覆盖全部 31 个 MCP 工具、错误码、风控原因码与配置参考。可另存为 `.html` 本地打开。
 - 发布与安装：docs/README-RELEASE.zh-CN.md
 - P1 验证说明：docs/P1-VALIDATION.zh-CN.md
 - 配置示例：examples/README.md

@@ -1,6 +1,7 @@
 import contextlib
 import os
 import sqlite3
+import threading
 
 from .modes import normalize_mode
 from .util import iso_now
@@ -301,6 +302,10 @@ class ClosingConnection(sqlite3.Connection):
 class Database:
     def __init__(self, path):
         self.path = os.path.abspath(path)
+        # One Worker process owns one Database instance. Serializing its short
+        # write transactions avoids SQLite busy waits between MCP request
+        # threads and the background event ingester while WAL readers continue.
+        self._write_lock = threading.RLock()
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
 
     def connect(self):
@@ -356,13 +361,14 @@ class Database:
 
     @contextlib.contextmanager
     def transaction(self, immediate=False):
-        connection = self.connect()
-        try:
-            connection.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
-            yield connection
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+        with self._write_lock:
+            connection = self.connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+                yield connection
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()

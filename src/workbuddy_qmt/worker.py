@@ -16,6 +16,8 @@ from .file_queue import FileQueue
 from .security import KeyRing
 from .util import iso_now, new_id
 
+WORKER_QUEUE_INTERVAL_SECONDS = 0.25
+
 
 def build_runtime(config_path=None):
     config = load_config(config_path)
@@ -34,7 +36,7 @@ def build_runtime(config_path=None):
 
 
 class RuntimeLoop(threading.Thread):
-    def __init__(self, core, interval=1.0):
+    def __init__(self, core, interval=WORKER_QUEUE_INTERVAL_SECONDS):
         super().__init__(name="qmt-queue-loop", daemon=True)
         self.core = core
         self.interval = interval

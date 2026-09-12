@@ -18,7 +18,7 @@
 | 项目 | 状态 | 说明 |
 | --- | --- | --- |
 | `%USERPROFILE%\.workbuddy\mcp.json` | 当前集成路径 | 向导只合并 `mcpServers.qmt-bridge` |
-| MCP stdio | 软件实现并测试 | 29 个工具；具体 WorkBuddy 构建仍需首次连接验证 |
+| MCP stdio | 软件实现并测试 | 当前源码 31 个工具；具体 WorkBuddy 构建仍需首次连接验证 |
 | WorkBuddy 最低构建号 | 尚未固定 | 使用 `verify` 与 `qmt_health` 作为当前电脑的验收依据 |
 
 ## 大 QMT 与券商柜台

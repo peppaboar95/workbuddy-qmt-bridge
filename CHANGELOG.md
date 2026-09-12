@@ -2,6 +2,26 @@
 
 本项目的重要变化记录在此。版本号遵循 Semantic Versioning。
 
+## Unreleased
+
+### Added
+
+- `prepare_trade`：一次完成必要快照刷新、有限等待和安全预览，不会自动提交订单；
+- `wait_trade_intent`：提交后进行一次最长 5 秒的有界等待，超时不会重发；
+- 新增组合准备、等待超时、单写者并发和快速轮询回归测试。
+
+### Changed
+
+- QMT Adapter 命令轮询默认从 1 秒缩短为 500ms，Worker 回报摄取轮询从 1 秒缩短为 250ms；
+- Worker 内 MCP 请求线程和后台事件摄取使用同一个进程内写事务锁，减少 SQLite 写锁尾延迟；
+- MCP 工具说明要求单账户多标的批量同步、复用新鲜账户/持仓快照，并在提交后只调用一次有界等待。
+
+### Safety
+
+- `prepare_trade` 只生成预览，继续保留独立确认与 `submit_trade_intent`；
+- `wait_trade_intent` 只读且绝不重发；所有 Profile、授权、硬风控和双端复核保持不变；
+- 本轮未加入端到端耗时追踪或额外日志字段。
+
 ## 0.3.4 - 2026-09-11
 
 ### Added

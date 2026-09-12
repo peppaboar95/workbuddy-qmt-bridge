@@ -141,6 +141,10 @@ def _load_config():
         "price_guard_max_quote_age_seconds", 1, 60,
     )
     config["max_batch"] = _config_int(config.get("max_batch", 10), "max_batch", 1, 100)
+    config["command_poll_interval_ms"] = _config_int(
+        config.get("command_poll_interval_ms", 500),
+        "command_poll_interval_ms", 100, 5000,
+    )
     config["max_message_bytes"] = _config_int(
         config.get("max_message_bytes", 65536), "max_message_bytes", 1024, 16777216
     )
@@ -1361,7 +1365,10 @@ def init(C):
         C.set_account(_CONFIG["qmt_account_id"])
         _STATUS = "RECOVERING"
         heartbeat_task(C)
-        _schedule(C, "poll_commands", "1nSecond")
+        _schedule(
+            C, "poll_commands",
+            "%dnMilliSecond" % int(_CONFIG.get("command_poll_interval_ms", 500)),
+        )
         _schedule(C, "snapshot_task", "5nSecond")
         _schedule(C, "heartbeat_task", "5nSecond")
         if _CONFIG["account_type"] == "CREDIT":

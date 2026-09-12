@@ -21,6 +21,14 @@ workbuddy-qmt verify --human
 | Adapter/Profile 不同步 | 停止 Worker/QMT，运行账户 `configure --force`；已有 Profile 默认保留 |
 | WorkBuddy 看不到工具 | 运行 `verify`，确认 MCP 配置通过后完整重启 WorkBuddy |
 
+## MCP 下单耗时较长
+
+- 单笔交易优先用 `prepare_trade`，避免 WorkBuddy 分别进行同步、查询和预览；
+- 多标的在一次 `request_sync` 的 `symbols` 中批量提交，不要逐标的同步；
+- `submit_trade_intent` 返回 `QUEUED` 后只调用一次 `wait_trade_intent`，不要循环快速查询，更不要因等待超时重新提交；
+- 若桥接仍使用旧 Adapter，重新运行安装/配置生成文件，保留 Profile 后重新部署 `qmt_adapter.py` 和 `qmt_adapter.json`；
+- 队列堆积、Adapter 未就绪或 Worker 停止不属于正常延迟，先用 `qmt_health` 和 `status --human` 排查。
+
 ## 打开相关目录
 
 ```powershell

@@ -53,3 +53,17 @@ workbuddy-qmt account disable main_credit --confirm DISABLE-ACCOUNT --human
 ```
 
 账户变化后保持 `OBSERVE_ONLY`，重新部署/启动对应 QMT 策略，再运行 `verify`。
+
+## 更快的下单调用方式
+
+单笔交易使用以下流程：
+
+1. 调用 `prepare_trade`，由桥接一次完成账户、持仓、委托、成交和目标行情同步，并返回预览；
+2. 展示预览并完成当前模式要求的确认或授权；
+3. 调用 `submit_trade_intent`；
+4. 返回 `QUEUED` 后调用一次 `wait_trade_intent`，建议等待 2.5 秒；
+5. 如果超时，保留 `intent_id`，稍后查询同一意图。不要重新提交预览。
+
+同一账户同时处理多个标的时，不要为每个标的单独同步。先调用一次 `request_sync`，在 `symbols` 中放入全部目标标的，然后复用新鲜账户/持仓数据逐笔 `preview_trade`。
+
+新的 QMT Adapter 默认每 500ms 取一次命令，Worker 每 250ms 摄取一次回报。旧的 QMT 策略副本不会自动变化；升级后需要重新生成并部署 Adapter，Profile 默认保留。

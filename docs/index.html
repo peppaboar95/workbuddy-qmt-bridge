@@ -356,8 +356,10 @@ ol.plain li{margin-bottom:8px}
     <div class="nav-group">
       <h4>交易生命周期</h4>
       <ul>
+        <li><a class="nav-link" href="#prepare_trade"><span class="dot"></span><span class="nm">prepare_trade</span></a></li>
         <li><a class="nav-link" href="#preview_trade"><span class="dot"></span><span class="nm">preview_trade</span></a></li>
         <li><a class="nav-link" href="#submit_trade_intent"><span class="dot"></span><span class="nm">submit_trade_intent</span></a></li>
+        <li><a class="nav-link" href="#wait_trade_intent"><span class="dot"></span><span class="nm">wait_trade_intent</span></a></li>
         <li><a class="nav-link" href="#cancel_order"><span class="dot"></span><span class="nm">cancel_order</span></a></li>
         <li><a class="nav-link" href="#get_trade_intent"><span class="dot"></span><span class="nm">get_trade_intent</span></a></li>
         <li><a class="nav-link" href="#list_trade_intents"><span class="dot"></span><span class="nm">list_trade_intents</span></a></li>
@@ -418,8 +420,12 @@ ol.plain li{margin-bottom:8px}
     <p><strong>v0.3.4 优化了首次使用。</strong>安装器会自动验证 wheel 哈希；每个账户会生成部署说明；新增只读验收、账户配置、目录打开、版本检查和脱敏诊断包。已有签名 Profile 仍会原样保留。安装资产见 <a href="https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/tag/v0.3.4">GitHub Release v0.3.4</a>。</p>
   </div>
 
+  <div class="note">
+    <p><strong>当前源码含尚未发布的低延迟改造。</strong>新增 <code class="inl">prepare_trade</code> 与 <code class="inl">wait_trade_intent</code>，并缩短 Worker / Adapter 默认轮询间隔；正式 Release v0.3.4 安装资产暂不包含这些变化。</p>
+  </div>
+
   <div class="grid2">
-    <div class="panel"><span class="k">29</span><h4>MCP 工具</h4><p>覆盖健康检查、账户、行情、持仓、委托、成交、信用、预览、提交、授权与熔断。</p></div>
+    <div class="panel"><span class="k">31</span><h4>MCP 工具</h4><p>覆盖健康检查、账户、行情、持仓、委托、成交、信用、准备、预览、提交、等待、授权与熔断。</p></div>
     <div class="panel"><span class="k">4</span><h4>运行模式</h4><p><code class="inl">OBSERVE_ONLY</code> / <code class="inl">SIM_SIGNAL</code> / <code class="inl">MANUAL_LIVE</code> / <code class="inl">LIMITED_AUTO</code>。</p></div>
     <div class="panel"><span class="k">2</span><h4>传输通道</h4><p>MCP stdio（WorkBuddy 侧）与本机 HTTP <code class="inl">POST /rpc</code>（Worker 侧）。</p></div>
     <div class="panel"><span class="k">15</span><h4>硬风控维度</h4><p>资金、可卖量、单笔/单日额度、行情时效、价格笼子、活动委托、信用指标等。</p></div>
@@ -521,9 +527,9 @@ workbuddy-qmt support-bundle --redact --human</pre></div>
   </svg>
 
   <h3>交易链路十二步</h3>
-  <div class="flow"><pre> 1  WorkBuddy 请求 QMT 同步账户、持仓和目标标的行情（request_sync）
+  <div class="flow"><pre> 1  单标的调用 prepare_trade；多标的一次 request_sync 批量刷新后再分别 preview_trade
  2  Adapter 返回最新价、盘口、涨跌停、最小价位、动态价格笼子
- 3  preview_trade 把意图转成结构化动作、数量与限价（不产生可执行命令）
+ 3  prepare_trade / preview_trade 把意图转成结构化动作、数量与限价（不产生可执行命令）
  4  Worker 校验：零股 / 最小数量 / 资金 / 可卖量 / 单笔单日限额 /
     行情年龄 / 价格笼子 / 活动委托冲突 / 信用指标
  5  MANUAL_LIVE 逐笔授权（authorize_manual_trade）
@@ -534,7 +540,7 @@ workbuddy-qmt support-bundle --redact --human</pre></div>
  9  Adapter 重新检查账户、数量、资金、实时行情、涨跌停、价格笼子、本地授权、P1 策略哈希
 10  Adapter 校验签名 Profile 与 QMT 构建、柜台构建、账户、策略、Adapter 实例完全一致
 11  Adapter 先写入 PRE_SUBMIT 防重复日志，再调用一次 passorder
-12  委托 / 成交 / 错误回调写回 Worker，WorkBuddy 用查询工具取最终状态</pre></div>
+12  委托 / 成交 / 错误回调写回 Worker；提交后先调用一次 wait_trade_intent 取首个状态</pre></div>
 
   <div class="note warn">
     <p><strong>模式名称不代表柜台。</strong><code class="inl">SIM_SIGNAL</code>、<code class="inl">MANUAL_LIVE</code>、<code class="inl">LIMITED_AUTO</code> 都无法识别当前连接的是模拟柜台还是真实资金柜台，操作者必须在 QMT 中自行核对账户与柜台。</p>
@@ -569,7 +575,7 @@ workbuddy-qmt support-bundle --redact --human</pre></div>
     <div class="tablewrap"><table>
       <thead><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
       <tbody>
-        <tr><td><code>method</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>方法名，必须是 29 个受支持方法之一，否则 <code>METHOD_NOT_FOUND</code>。</td></tr>
+        <tr><td><code>method</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td>方法名，必须是 31 个受支持方法之一，否则 <code>METHOD_NOT_FOUND</code>。</td></tr>
         <tr><td><code>params</code></td><td><span class="ty">object</span></td><td><span class="opt">可选</span></td><td>方法入参，键必须与 Python 函数签名一一对应，缺参/多参抛 <code>INVALID_REQUEST</code>。</td></tr>
         <tr><td><code>request_id</code></td><td><span class="ty">string</span></td><td><span class="opt">可选</span></td><td>缺省时 Worker 自动生成；原样回显，并写入 <code>mcp_requests</code> 审计表。</td></tr>
       </tbody>
@@ -774,7 +780,7 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
 <section class="section" id="envelope">
   <span class="eyebrow">入门</span>
   <h2>响应信封</h2>
-  <p>所有 29 个方法返回<b>完全相同</b>的外层结构。业务数据一律装在 <code class="inl">data</code> 字段里。</p>
+  <p>所有 31 个方法返回<b>完全相同</b>的外层结构。业务数据一律装在 <code class="inl">data</code> 字段里。</p>
 
   <div class="tablewrap"><table>
     <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
@@ -836,7 +842,7 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
     <tbody>
       <tr><td><code>BRIDGE_UNAVAILABLE</code></td><td>MCP 前端连不上 Worker。</td><td>检查 Worker 控制台是否在运行、端口是否被占用。</td></tr>
       <tr><td><code>UNAUTHORIZED</code></td><td>Bearer 令牌不匹配（HTTP 401）。</td><td>确认 MCP 启动参数与 Worker 使用同一 runtime。</td></tr>
-      <tr><td><code>METHOD_NOT_FOUND</code></td><td>方法名不在 29 个支持列表中。</td><td>核对方法名拼写。</td></tr>
+      <tr><td><code>METHOD_NOT_FOUND</code></td><td>方法名不在 31 个支持列表中。</td><td>核对方法名拼写。</td></tr>
       <tr><td><code>INVALID_REQUEST</code></td><td>参数缺失/多余、类型错误、消息体超限或信封字段非法。</td><td>按本文档的参数表逐项核对；注意 <code>additionalProperties:false</code>。</td></tr>
       <tr><td><code>INTERNAL_ERROR</code></td><td>Worker 未捕获异常（HTTP 500）。</td><td>查看 <code>&lt;runtime&gt;\data\logs\worker-YYYY-MM-DD.log</code>。</td></tr>
     </tbody>
@@ -883,6 +889,8 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
       <tr><td><code>CREDIT_QUERY_IN_PROGRESS</code></td><td>已有信用额度查询在执行。</td><td>等待后用 <code>get_credit_capacity</code> 取结果。</td></tr>
       <tr><td><code>CREDIT_QUERY_RATE_LIMITED</code></td><td>距上次查询不足 <code>credit_query_cooldown_seconds</code>（默认 180 秒）。</td><td>读 <code>details.retry_after_seconds</code> 后重试。</td></tr>
       <tr><td><code>MARKET_DATA_STALE</code></td><td>行情不足以计算价格笼子或涨跌停。</td><td>恢复行情源并重新同步。</td></tr>
+      <tr><td><code>SYNC_TIMEOUT</code></td><td><code>prepare_trade</code> 在限定时间内未收到完整同步结果。</td><td>确认 QMT 策略在运行后安全重试；超时不会创建预览或报单。</td></tr>
+      <tr><td><code>SYNC_FAILED</code></td><td>QMT 拒绝或未能完成准备阶段所需同步。</td><td>读取 <code>details.status</code> 并检查 Adapter / QMT 状态。</td></tr>
     </tbody>
   </table></div>
 
@@ -1684,6 +1692,86 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
   </div>
 </section>
 
+<!-- ============ prepare_trade ============ -->
+<section class="section" id="prepare_trade">
+  <span class="eyebrow">交易生命周期</span>
+  <h2>prepare_trade</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>prepare_trade</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-put">WRITE</span>
+    </div>
+    <p class="ep-desc">单标的低延迟准备入口：校验交易请求，向 QMT 一次请求账户、持仓、委托、成交与目标标的行情，等待同步完成和事件队列清空，然后执行 <code class="inl">preview_trade</code>。<b>不会提交交易意图，也不会产生可执行命令。</b></p>
+    <div class="ep-meta"><span class="tag ok">安全</span><span class="tag">同步 + 预览</span><span class="tag">永不报单</span></div>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>trade_request</code></td><td><span class="ty">object</span></td><td><span class="req">必填</span></td><td>与 <a href="#preview_trade"><code>preview_trade.trade_request</code></a> 完全相同。</td></tr>
+        <tr><td><code>timeout_seconds</code></td><td><span class="ty">number</span></td><td><span class="opt">可选</span></td><td>0.5–5.0，默认 3.0；只限制准备阶段等待，不改变消息 TTL。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">单标的准备</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "prepare_trade",
+  "params": {
+    "trade_request": {
+      "account_alias": "main_stock",
+      "instrument": { "canonical_symbol": "601398.SH" },
+      "action": "BUY",
+      "sizing": { "type": "FIXED_VOLUME", "value": 500 },
+      "price_policy": { "type": "LIMIT_FROM_LATEST", "offset_bps": 5 },
+      "execution_mode": "OBSERVE_ONLY",
+      "source": { "type": "manual", "signal_id": "sig_20260912_001" }
+    },
+    "timeout_seconds": 3.0
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "sync": {
+    "message_id": "msg_82f1",
+    "status": "SYNC_COMPLETED",
+    "scopes": ["ACCOUNT", "POSITION", "ORDER", "DEAL", "QUOTE"],
+    "symbols": ["601398.SH"],
+    "event_queue_drained": true
+  },
+  "preview": {
+    "preview_id": "preview_5c8e",
+    "expires_at": "2026-09-12T02:22:04.100Z",
+    "account_alias": "main_stock",
+    "instrument": {
+      "canonical_symbol": "601398.SH",
+      "qmt_symbol": "601398.SH"
+    },
+    "resolved_order": {
+      "volume": 500,
+      "price_type": "LIMIT",
+      "limit_price": 7.05,
+      "notional": 3525.0
+    },
+    "risk": { "allowed": true, "reasons": [] }
+  }
+}</pre>
+      </div>
+    </div>
+
+    <ul class="plain">
+      <li>单标的优先使用本工具，可减少 WorkBuddy 与 MCP 之间的往返调用。</li>
+      <li>多个标的应一次调用 <code class="inl">request_sync</code>，在 <code class="inl">symbols</code> 中批量传入全部代码，再分别调用 <code class="inl">preview_trade</code>；不要逐标的重复刷新账户和持仓。</li>
+      <li><code class="inl">SYNC_TIMEOUT</code> 时不会创建预览或报单，确认 QMT 策略在运行后可安全重试；<code class="inl">SYNC_FAILED</code> 表示 QMT 明确拒绝或同步失败。</li>
+      <li>信用账户的债务合约和额度预检查仍需按信用工具流程准备，本工具不替代 <code class="inl">request_credit_precheck</code>。</li>
+    </ul>
+  </div>
+</section>
+
 <!-- ============ preview_trade ============ -->
 <section class="section" id="preview_trade">
   <span class="eyebrow">交易生命周期</span>
@@ -1699,7 +1787,7 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
     <div class="ep-meta"><span class="tag ok">安全</span><span class="tag">永不报单</span><span class="tag">TTL 120s</span></div>
 
     <div class="note warn">
-      <p><strong>必须先刷新行情。</strong>调用前立即执行 <code class="inl">request_sync</code> 并带 <code class="inl">QUOTE</code> 域，否则大概率命中 <code class="inl">QUOTE_SNAPSHOT_STALE</code>。</p>
+      <p><strong>必须先刷新行情。</strong>单标的优先直接调用 <code class="inl">prepare_trade</code>；批量标的先一次执行 <code class="inl">request_sync</code> 并带 <code class="inl">QUOTE</code> 域，再分别预览。否则大概率命中 <code class="inl">QUOTE_SNAPSHOT_STALE</code>。</p>
     </div>
 
     <h4>参数</h4>
@@ -1933,7 +2021,69 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
     </div>
 
     <div class="note">
-      <p><strong>返回 <code class="inl">QUEUED</code> 不等于已报单。</strong>命令只是入队。最终状态要用 <code class="inl">get_trade_intent</code> 或 <code class="inl">get_orders</code> 轮询。<code class="inl">SUBMIT_UNKNOWN</code> 表示结果未明，系统<b>不会</b>自动重发，需人工处理，且会阻止新的自动订单。</p>
+      <p><strong>返回 <code class="inl">QUEUED</code> 不等于已报单。</strong>命令只是入队。提交后先调用一次 <code class="inl">wait_trade_intent</code> 取得首个进展；如尚未终态，稍后再用 <code class="inl">get_trade_intent</code> 或 <code class="inl">get_orders</code> 查询。<code class="inl">SUBMIT_UNKNOWN</code> 表示结果未明，系统<b>不会</b>自动重发，需人工处理，且会阻止新的自动订单。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ wait_trade_intent ============ -->
+<section class="section" id="wait_trade_intent">
+  <span class="eyebrow">交易生命周期</span>
+  <h2>wait_trade_intent</h2>
+
+  <div class="ep">
+    <div class="ep-head">
+      <h3>wait_trade_intent</h3>
+      <span class="badge b-mcp">MCP</span>
+      <span class="badge b-get">READ</span>
+    </div>
+    <p class="ep-desc">在服务端做一次有上限的短等待；交易意图首次离开 <code class="inl">QUEUED</code> 就立即返回。用于替代 WorkBuddy 端的高频短轮询，<b>只查询，不提交、不重发。</b></p>
+    <div class="ep-meta"><span class="tag ok">只读</span><span class="tag">最长 5 秒</span><span class="tag">不等待终态</span></div>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>intent_id</code></td><td><span class="ty">string</span></td><td><span class="req">必填</span></td><td><code>submit_trade_intent</code> 返回的意图 ID。</td></tr>
+        <tr><td><code>timeout_seconds</code></td><td><span class="ty">number</span></td><td><span class="opt">可选</span></td><td>0.1–5.0，默认 2.5。</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="codegrid cols-2">
+      <div class="card">
+        <div class="card-head"><span class="lbl">Request</span><span class="fn">最多等待一次</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "method": "wait_trade_intent",
+  "params": {
+    "intent_id": "intent_7c2a",
+    "timeout_seconds": 2.5
+  }
+}</pre>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="lbl">Response</span><span class="fn">data</span><span class="spacer"></span><button class="copy">复制</button></div>
+        <pre data-lang="json">{
+  "status_observed": true,
+  "timed_out": false,
+  "intent": {
+    "intent_id": "intent_7c2a",
+    "intent_revision": 1,
+    "preview_id": "preview_5c8e",
+    "client_order_key": "cok_9d31",
+    "account_alias": "main_stock",
+    "status": "SUBMIT_CALLED",
+    "action": "BUY",
+    "symbol": "601398.SH",
+    "requested_volume": 500,
+    "limit_price": 7.05,
+    "orders": [],
+    "trades": []
+  }
+}</pre>
+      </div>
+    </div>
+
+    <div class="note">
+      <p><strong>一次等待只取首个进展，不保证终态。</strong>若超时，返回 <code class="inl">status_observed:false</code>、<code class="inl">timed_out:true</code>、当前意图和 <code class="inl">next_action</code>。稍后用 <code class="inl">get_trade_intent</code> 查询；<b>不要因为等待超时而重新提交预览</b>。</p>
     </div>
   </div>
 </section>
@@ -2195,7 +2345,7 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
     <p class="ep-desc">为已处于 <code class="inl">MANUAL_LIVE</code> 的账户开启 1–60 分钟的<b>时间授权</b>。有效期内<b>订单笔数不设上限</b>，<code class="inl">submit_trade_intent</code> 不再要求逐笔传入 <code class="inl">approval_context</code>。</p>
 
     <div class="note danger">
-      <p><strong>不限笔数 ≠ 绕过交易流程。</strong>每一笔订单仍必须分别走完「<code class="inl">request_sync</code> → <code class="inl">preview_trade</code> → <code class="inl">submit_trade_intent</code>」，提交时仍复算最新硬风控并比对风险决策指纹。预览过期、风险输入变化、额度超限、模式变化或熔断，一律拒绝。</p>
+      <p><strong>不限笔数 ≠ 绕过交易流程。</strong>单标的每一笔仍必须走完「<code class="inl">prepare_trade</code> → <code class="inl">submit_trade_intent</code>」；批量场景则一次同步后分别预览、提交。提交时仍复算最新硬风控并比对风险决策指纹。预览过期、风险输入变化、额度超限、模式变化或熔断，一律拒绝。</p>
     </div>
 
     <div class="tablewrap"><table>
@@ -3033,6 +3183,15 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
     </tbody>
   </table></div>
 
+  <h3>qmt_adapter.json · 轮询</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>参数</th><th>默认值</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>command_poll_interval_ms</code></td><td><span class="ty">500</span></td><td>Adapter 读取命令队列的间隔；脚本接受 100–5000 毫秒，安装器生成且 <code>doctor</code> 期望的值为 500。不要手工调低，以免增加 QMT 主线程负载或形成配置漂移。</td></tr>
+    </tbody>
+  </table></div>
+  <p>Worker 内部队列扫描默认间隔为 250 毫秒。两项改造只缩短本地消息等待，不跳过行情刷新、签名、授权或硬风控。</p>
+
   <h3>下单数量规则</h3>
   <div class="tablewrap"><table>
     <thead><tr><th>适用证券</th><th>最低买入</th><th>最低卖出</th></tr></thead>
@@ -3199,9 +3358,9 @@ python -c "import workbuddy_qmt; print(workbuddy_qmt.__version__)"</pre>
 
   <div class="foot">
     <dl class="foot-meta">
-      <div><dt>文档版本</dt><dd>2026-09-11 修订版</dd></div>
-      <div><dt>适用桥接版本</dt><dd>0.3.4（wheel 同名版本）</dd></div>
-      <div><dt>MCP 工具数</dt><dd>29</dd></div>
+      <div><dt>文档版本</dt><dd>2026-09-12 源码修订版</dd></div>
+      <div><dt>适用桥接版本</dt><dd>0.3.4 源码开发版（未发布）</dd></div>
+      <div><dt>MCP 工具数</dt><dd>31</dd></div>
       <div><dt>运行环境</dt><dd>Windows · Python ≥ 3.10</dd></div>
       <div><dt>传输协议</dt><dd>MCP stdio + 本机 HTTP /rpc</dd></div>
       <div><dt>默认监听</dt><dd>127.0.0.1:17642</dd></div>
@@ -3210,7 +3369,7 @@ python -c "import workbuddy_qmt; print(workbuddy_qmt.__version__)"</pre>
     </dl>
 
     <h4>关于本文档</h4>
-    <p>本文档描述 WorkBuddy-QMT Bridge 0.3.4 的 MCP 工具接口、传输协议、风控原因码与配置参数，内容与 wheel 内的 <code class="inl">mcp_server.py</code>、<code class="inl">core.py</code>、<code class="inl">worker.py</code>、<code class="inl">config.py</code> 实现一一对应。示例中的账户别名、标的、价格、委托号与金额均为虚构演示值，不包含任何真实账户信息、密钥或令牌。</p>
+    <p>本文档描述 WorkBuddy-QMT Bridge 当前 0.3.4 源码开发版的 MCP 工具接口、传输协议、风控原因码与配置参数，内容与源码中的 <code class="inl">mcp_server.py</code>、<code class="inl">core.py</code>、<code class="inl">worker.py</code>、<code class="inl">config.py</code> 实现一一对应。示例中的账户别名、标的、价格、委托号与金额均为虚构演示值，不包含任何真实账户信息、密钥或令牌。</p>
     <p>当前安装资产与升级说明：<a href="https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/tag/v0.3.4">Release v0.3.4</a>；项目源码与历史：<a href="https://github.com/peppaboar95/workbuddy-qmt-bridge">GitHub 仓库</a>。</p>
     <p>本文件为自包含 HTML：不加载任何 CDN、外部字体或远程脚本，可离线双击打开，也可直接托管在任意静态站点上。</p>
 

@@ -241,6 +241,7 @@ def _base_adapter_config(config, account, account_id, mapping_profile):
         "price_guard_max_quote_age_seconds": limits.max_quote_age_seconds,
         "p0_probe_enabled": False,
         "max_batch": 10,
+        "command_poll_interval_ms": 500,
         "max_message_bytes": config.max_message_bytes,
         "adapter_max_volume": limits.max_order_volume,
         "adapter_max_notional": limits.max_order_notional,
@@ -415,7 +416,7 @@ def _adapter_sync_issues(config, account, script_path, adapter_path, profile_pat
     sync_fields = (
         "account_alias", "account_type", "adapter_instance", "data_dir", "key_file",
         "mapping_profile", "strategy_name", "price_guard_max_quote_age_seconds",
-        "max_message_bytes", "adapter_max_volume", "adapter_max_notional",
+        "command_poll_interval_ms", "max_message_bytes", "adapter_max_volume", "adapter_max_notional",
         "limited_auto_credit_enabled",
         "adapter_max_auto_session_notional", "adapter_max_auto_orders",
         "adapter_min_auto_order_interval_seconds", "adapter_max_auto_concurrent_orders",

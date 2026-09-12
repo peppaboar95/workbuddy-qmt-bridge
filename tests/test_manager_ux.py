@@ -66,6 +66,10 @@ class ManagerUxTests(unittest.TestCase):
             script = stream.read()
         self.assertIn("ADAPTER_CONFIG_PATH = ", script)
         self.assertIn("\\ud83d\\ude80", script)
+        with open(bundle["adapter_config"], "r", encoding="utf-8") as stream:
+            adapter_config = json.load(stream)
+        self.assertEqual(adapter_config["command_poll_interval_ms"], 500)
+        self.assertIn("command_poll_interval_ms", script)
 
     def test_verify_requires_running_worker(self):
         report = verify_report(self.config_path)

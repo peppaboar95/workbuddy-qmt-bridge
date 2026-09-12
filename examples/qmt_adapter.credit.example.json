@@ -15,6 +15,7 @@
   "price_guard_max_quote_age_seconds": 30,
   "p0_probe_enabled": false,
   "max_batch": 10,
+  "command_poll_interval_ms": 500,
   "max_message_bytes": 65536,
   "adapter_max_volume": 500000,
   "adapter_max_notional": 100000.0,

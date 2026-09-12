@@ -4,6 +4,7 @@ import json
 import math
 import os
 import sqlite3
+import time
 
 from .errors import BridgeError, ValidationError
 from .modes import RUN_MODES
@@ -107,6 +108,7 @@ class BridgeCore:
             "get_trade_intent": self.get_trade_intent,
             "list_trade_intents": self.list_trade_intents,
             "get_risk_limits": self.get_risk_limits,
+            "prepare_trade": self.prepare_trade,
             "preview_trade": self.preview_trade,
             "authorize_manual_trade": self.authorize_manual_trade,
             "get_manual_authorization_status": self.get_manual_authorization_status,
@@ -118,6 +120,7 @@ class BridgeCore:
             "resume_limited_auto": self.resume_limited_auto,
             "revoke_limited_auto": self.revoke_limited_auto,
             "submit_trade_intent": self.submit_trade_intent,
+            "wait_trade_intent": self.wait_trade_intent,
             "cancel_order": self.cancel_order,
             "request_sync": self.request_sync,
             "request_credit_precheck": self.request_credit_precheck,
@@ -409,6 +412,27 @@ class BridgeCore:
                 "SELECT payload_json FROM trades WHERE intent_id=? ORDER BY traded_at", (intent_id,)
             ).fetchall()]
             return item
+
+    def wait_trade_intent(self, intent_id, timeout_seconds=2.5):
+        timeout = _number(timeout_seconds, "timeout_seconds", 0.1, 5.0)
+        deadline = time.monotonic() + timeout
+        while True:
+            intent = self.get_trade_intent(intent_id)
+            if intent["status"] != "QUEUED":
+                return {
+                    "status_observed": True,
+                    "timed_out": False,
+                    "intent": intent,
+                }
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return {
+                    "status_observed": False,
+                    "timed_out": True,
+                    "intent": intent,
+                    "next_action": "Query this intent later; do not resubmit the preview.",
+                }
+            time.sleep(min(0.1, remaining))
 
     def list_trade_intents(self, status=None, after_seq=None, limit=100):
         limit = int(limit)
@@ -1101,6 +1125,52 @@ class BridgeCore:
                 (new_id("risk"), preview_id, result["account_alias"], int(result["risk"]["allowed"]), json_text(result["risk"]["reasons"]), result["snapshot_fingerprint"], result["created_at"]),
             )
         return result
+
+    def prepare_trade(self, trade_request, timeout_seconds=3.0):
+        account, symbol = self._validate_trade_request(trade_request)
+        timeout = _number(timeout_seconds, "timeout_seconds", 0.5, 5.0)
+        scopes = ["ACCOUNT", "POSITION", "ORDER", "DEAL", "QUOTE"]
+        sync = self.request_sync(account.alias, scopes, [symbol])
+        deadline = time.monotonic() + timeout
+        while True:
+            with self.db.connect() as connection:
+                row = connection.execute(
+                    "SELECT status FROM qmt_commands WHERE message_id=?",
+                    (sync["message_id"],),
+                ).fetchone()
+            status = row["status"] if row else None
+            queue_depths = self.queue.depths(account.adapter_instance)
+            if status == "SYNC_COMPLETED" and queue_depths.get("events", 0) == 0:
+                break
+            if status in {"QMT_REJECTED", "RISK_REJECTED", "FAILED"}:
+                raise BridgeError(
+                    "SYNC_FAILED",
+                    "QMT rejected the snapshot refresh required for trade preparation",
+                    {"message_id": sync["message_id"], "status": status},
+                )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise BridgeError(
+                    "SYNC_TIMEOUT",
+                    "fresh QMT snapshots were not received before the preparation timeout",
+                    {
+                        "message_id": sync["message_id"],
+                        "status": status,
+                        "retry_safe": True,
+                    },
+                )
+            time.sleep(min(0.1, remaining))
+        preview = self.preview_trade(trade_request)
+        return {
+            "sync": {
+                "message_id": sync["message_id"],
+                "status": "SYNC_COMPLETED",
+                "scopes": scopes,
+                "symbols": [symbol],
+                "event_queue_drained": True,
+            },
+            "preview": preview,
+        }
 
     def _write_local_authorization(
         self, account, allowed_modes, live_until, actor, correlation_id,

@@ -71,11 +71,11 @@ def _tool(name, description, schema, read_only=True, destructive=False):
 TOOLS = [
     _tool("qmt_health", "Return Worker, QMT adapter, snapshot, queue, mode and halt health.", _object()),
     _tool("list_account_aliases", "List configured safe account aliases; never returns real broker account IDs.", _object({"account_type": {"type": "string", "enum": ["STOCK", "CREDIT"]}})),
-    _tool("get_account_snapshot", "Get the latest normalized stock account snapshot.", _object({"account_alias": ACCOUNT}, ["account_alias"])),
+    _tool("get_account_snapshot", "Get the latest normalized stock account snapshot. Reuse it while fresh; do not refresh once per symbol.", _object({"account_alias": ACCOUNT}, ["account_alias"])),
     _tool("get_quote_snapshot", "Get QMT-derived quotes, exchange daily limits, tick sizes and dynamic price-cage boundaries. Refresh with request_sync first.", _object({
         "account_alias": ACCOUNT, "symbols": {"type": "array", "items": SYMBOL, "minItems": 1, "maxItems": 100},
     }, ["account_alias", "symbols"])),
-    _tool("get_positions", "Get positions from one coherent latest snapshot.", _object({
+    _tool("get_positions", "Get positions from one coherent latest snapshot. Request all relevant symbols together and reuse the result.", _object({
         "account_alias": ACCOUNT, "symbols": {"type": "array", "items": SYMBOL, "maxItems": 100}, "include_zero": {"type": "boolean"},
     }, ["account_alias"])),
     _tool("get_orders", "Get normalized QMT orders.", _object({
@@ -92,12 +92,20 @@ TOOLS = [
     _tool("get_credit_capacity", "Get recent serialized credit capacity query results.", _object({
         "account_alias": ACCOUNT,
     }, ["account_alias"])),
-    _tool("get_trade_intent", "Get one intent plus linked order and trade facts.", _object({"intent_id": STRING}, ["intent_id"])),
+    _tool("get_trade_intent", "Get one intent plus linked order and trade facts. For the first post-submit result, prefer one wait_trade_intent call instead of repeated polling.", _object({"intent_id": STRING}, ["intent_id"])),
+    _tool("wait_trade_intent", "Wait once, for at most 5 seconds, until a queued intent receives an Adapter/QMT status. Timeout never resubmits and returns the current intent; query it later by intent_id.", _object({
+        "intent_id": STRING,
+        "timeout_seconds": {"type": "number", "minimum": 0.1, "maximum": 5.0, "default": 2.5},
+    }, ["intent_id"])),
     _tool("list_trade_intents", "List persisted intents in stable sequence order.", _object({
         "status": {"oneOf": [STRING, {"type": "array", "items": STRING}]}, "after_seq": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 500},
     })),
     _tool("get_risk_limits", "Get versioned local hard-risk limits for an alias.", _object({"account_alias": ACCOUNT}, ["account_alias"])),
-    _tool("preview_trade", "Normalize and hard-risk-check a trade using a fresh QMT quote. Price is favorably tick-rounded and constrained by daily limits and exchange dynamic price cages; no executable command is created. Call request_sync with QUOTE immediately before preview.", _object({"trade_request": TRADE_REQUEST}, ["trade_request"])),
+    _tool("prepare_trade", "Preferred single-trade preparation path: request one combined QMT refresh for account, positions, orders, deals and the target quote; wait for that refresh; then create a hard-risk preview. It never submits an order. Show the returned preview and obtain any required user confirmation before submit_trade_intent.", _object({
+        "trade_request": TRADE_REQUEST,
+        "timeout_seconds": {"type": "number", "minimum": 0.5, "maximum": 5.0, "default": 3.0},
+    }, ["trade_request"]), read_only=False),
+    _tool("preview_trade", "Normalize and hard-risk-check a trade using already-fresh snapshots; no executable command is created. Prefer prepare_trade for one trade. For several symbols, issue one batched request_sync and then preview each trade without repeating sync.", _object({"trade_request": TRADE_REQUEST}, ["trade_request"])),
     _tool(
         "authorize_manual_trade",
         "HIGH RISK: authorize one exact, unexpired MANUAL_LIVE preview through MCP. The Worker must already have been placed in MANUAL_LIVE locally. Rechecks risk, opens a short LIVE window, creates a one-time preview approval, and returns approval_context for submit_trade_intent. This can enable a real QMT order; call only after the user explicitly confirms the displayed preview.",
@@ -202,14 +210,14 @@ TOOLS = [
         }, ["account_alias", "reason", "confirm"]),
         read_only=False,
     ),
-    _tool("submit_trade_intent", "Submit one unexpired preview after rechecking snapshots and hard risk, plus MANUAL_LIVE approval/session or an exact P1 limited-auto permit with atomically reserved budgets.", _object({
+    _tool("submit_trade_intent", "Submit one unexpired preview after rechecking snapshots and hard risk, plus MANUAL_LIVE approval/session or an exact P1 limited-auto permit with atomically reserved budgets. It returns QUEUED promptly; call wait_trade_intent once rather than repeatedly polling or resubmitting.", _object({
         "preview_id": STRING,
         "approval_context": _object({"local_approval_id": STRING}),
     }, ["preview_id"]), read_only=False),
     _tool("cancel_order", "Request cancellation of one exact active QMT order owned by this bridge.", _object({
         "account_alias": ACCOUNT, "order_id": STRING, "reason": {"type": "string", "minLength": 1, "maxLength": 200},
     }, ["account_alias", "order_id", "reason"]), read_only=False, destructive=True),
-    _tool("request_sync", "Request fresh adapter snapshots. QUOTE requires symbols and obtains QMT daily limits, tick size, book benchmark and dynamic cage; this never places an order.", _object({
+    _tool("request_sync", "Request fresh adapter snapshots asynchronously; this never places an order. Batch every target symbol for the same account into one QUOTE request instead of one request per symbol. Prefer prepare_trade for a single trade.", _object({
         "account_alias": ACCOUNT,
         "scopes": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"type": "string", "enum": ["ACCOUNT", "POSITION", "ORDER", "DEAL", "QUOTE", "CREDIT_ACCOUNT", "CREDIT_DEBT", "CREDIT_ELIGIBILITY"]}},
         "symbols": {"type": "array", "items": SYMBOL, "minItems": 1, "maxItems": 100},
@@ -290,7 +298,7 @@ def serve(client, input_stream=None, output_stream=None):
                     "protocolVersion": requested or "2025-03-26",
                     "capabilities": {"tools": {"listChanged": False}},
                     "serverInfo": {"name": "workbuddy-qmt-bridge", "version": __version__},
-                    "instructions": "Trade tools are fail-closed. Preview before submit. LIMITED_AUTO requires an exact P1 permit and health gate; mode changes and halt recovery remain local-console operations.",
+                    "instructions": "Trade tools are fail-closed. Prefer prepare_trade for a single trade. For multiple symbols, batch one request_sync and reuse fresh account/position data before previewing each trade. Preview and obtain required confirmation before submit. After submit returns QUEUED, call wait_trade_intent once; never resubmit because of a timeout. LIMITED_AUTO requires an exact P1 permit and health gate; mode changes and halt recovery remain local-console operations.",
                 }
                 write_message(output_stream, {"jsonrpc": "2.0", "id": request_id, "result": result})
             elif method == "ping":
