@@ -3188,9 +3188,10 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
     <thead><tr><th>参数</th><th>默认值</th><th>说明</th></tr></thead>
     <tbody>
       <tr><td><code>command_poll_interval_ms</code></td><td><span class="ty">500</span></td><td>Adapter 读取命令队列的间隔；脚本接受 100–5000 毫秒，安装器生成且 <code>doctor</code> 期望的值为 500。不要手工调低，以免增加 QMT 主线程负载或形成配置漂移。</td></tr>
+      <tr><td><code>order_deal_reconcile_seconds</code></td><td><span class="ty">30</span></td><td>委托/成交完整兜底对账周期，允许 10–3600 秒。实时状态优先来自 QMT 回调；启动、显式同步和异常报单仍可提前触发完整对账。</td></tr>
     </tbody>
   </table></div>
-  <p>Worker 内部队列扫描默认间隔为 250 毫秒。两项改造只缩短本地消息等待，不跳过行情刷新、签名、授权或硬风控。</p>
+  <p>Worker 内部队列扫描默认间隔为 250 毫秒。Adapter 每 5 秒刷新账户和持仓，委托/成交以实时回调为主并按上述周期完整对账。相关改造不跳过行情刷新、签名、授权或硬风控。</p>
 
   <h3>下单数量规则</h3>
   <div class="tablewrap"><table>
@@ -3358,7 +3359,7 @@ python -c "import workbuddy_qmt; print(workbuddy_qmt.__version__)"</pre>
 
   <div class="foot">
     <dl class="foot-meta">
-      <div><dt>文档版本</dt><dd>2026-09-12 源码修订版</dd></div>
+      <div><dt>文档版本</dt><dd>2026-09-13 源码修订版</dd></div>
       <div><dt>适用桥接版本</dt><dd>0.3.4 源码开发版（未发布）</dd></div>
       <div><dt>MCP 工具数</dt><dd>31</dd></div>
       <div><dt>运行环境</dt><dd>Windows · Python ≥ 3.10</dd></div>

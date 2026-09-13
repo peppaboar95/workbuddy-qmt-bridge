@@ -29,6 +29,8 @@ workbuddy-qmt verify --human
 - 若桥接仍使用旧 Adapter，重新运行安装/配置生成文件，保留 Profile 后重新部署 `qmt_adapter.py` 和 `qmt_adapter.json`；
 - 队列堆积、Adapter 未就绪或 Worker 停止不属于正常延迟，先用 `qmt_health` 和 `status --human` 排查。
 
+正常情况下，账户和持仓每 5 秒刷新，委托和成交由 QMT 回调实时更新，并每 30 秒完整对账。若委托状态超过 30 秒仍无变化，检查 `dead_letter`、Adapter 心跳和 QMT 回调；不要通过重复提交来修复状态。
+
 ## 打开相关目录
 
 ```powershell

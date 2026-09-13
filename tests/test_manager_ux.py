@@ -69,7 +69,9 @@ class ManagerUxTests(unittest.TestCase):
         with open(bundle["adapter_config"], "r", encoding="utf-8") as stream:
             adapter_config = json.load(stream)
         self.assertEqual(adapter_config["command_poll_interval_ms"], 500)
+        self.assertEqual(adapter_config["order_deal_reconcile_seconds"], 30)
         self.assertIn("command_poll_interval_ms", script)
+        self.assertIn("order_deal_reconcile_task", script)
 
     def test_verify_requires_running_worker(self):
         report = verify_report(self.config_path)

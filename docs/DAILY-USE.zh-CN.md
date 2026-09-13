@@ -67,3 +67,5 @@ workbuddy-qmt account disable main_credit --confirm DISABLE-ACCOUNT --human
 同一账户同时处理多个标的时，不要为每个标的单独同步。先调用一次 `request_sync`，在 `symbols` 中放入全部目标标的，然后复用新鲜账户/持仓数据逐笔 `preview_trade`。
 
 新的 QMT Adapter 默认每 500ms 取一次命令，Worker 每 250ms 摄取一次回报。旧的 QMT 策略副本不会自动变化；升级后需要重新生成并部署 Adapter，Profile 默认保留。
+
+Adapter 每 5 秒刷新账户和持仓；委托与成交以 QMT 实时回调为主，并每 30 秒完整对账兜底。策略启动、`prepare_trade` 和包含 `ORDER`/`DEAL` 的显式同步仍会立即完整对账；异常报单会请求提前对账。

@@ -32,6 +32,8 @@ _LAST_CREDIT_QUERY_AT = 0.0
 _LAST_CONSOLE_HEARTBEAT_AT = 0.0
 _LAST_CONSOLE_STATUS = None
 _LAST_CONSOLE_LOCAL_HALT = None
+_LAST_ORDER_DEAL_RECONCILE_AT = 0.0
+_ORDER_DEAL_RECONCILE_REQUESTED = False
 _SCHEDULE_METHODS = {}
 _P0_PROBE_ATTEMPTS = 0
 _P0_PROBE_COMPLETE = False
@@ -144,6 +146,10 @@ def _load_config():
     config["command_poll_interval_ms"] = _config_int(
         config.get("command_poll_interval_ms", 500),
         "command_poll_interval_ms", 100, 5000,
+    )
+    config["order_deal_reconcile_seconds"] = _config_int(
+        config.get("order_deal_reconcile_seconds", 30),
+        "order_deal_reconcile_seconds", 10, 3600,
     )
     config["max_message_bytes"] = _config_int(
         config.get("max_message_bytes", 65536), "max_message_bytes", 1024, 16777216
@@ -344,6 +350,17 @@ def _ack(command, status, message_id=None, details=None):
         "client_order_key": command.get("client_order_key"),
         "status": status, "details": details or {},
     }, "command_acks")
+
+
+def _request_order_deal_reconcile():
+    global _ORDER_DEAL_RECONCILE_REQUESTED
+    _ORDER_DEAL_RECONCILE_REQUESTED = True
+
+
+def _mark_order_deal_reconciled():
+    global _LAST_ORDER_DEAL_RECONCILE_AT, _ORDER_DEAL_RECONCILE_REQUESTED
+    _LAST_ORDER_DEAL_RECONCILE_AT = time.time()
+    _ORDER_DEAL_RECONCILE_REQUESTED = False
 
 
 def _local_authorized(mode, command=None):
@@ -1002,6 +1019,7 @@ def _execute_order(command, message_id):
         # The call may have crossed the native boundary. Never rewrite PRE_SUBMIT
         # to a retryable state and never call passorder automatically again.
         _pause_auto_locally(command, "passorder returned an uncertain result")
+        _request_order_deal_reconcile()
         _ack(command, "SUBMIT_UNKNOWN", message_id, {"error": str(exc)[:200]})
         return
     _write_journal(command, "SUBMIT_CALLED")
@@ -1020,7 +1038,10 @@ def _cancel_order(command, message_id):
 
 
 def _request_sync(command, message_id):
-    _emit_snapshots(_CONTEXT, command.get("scopes", []), command.get("symbols", []))
+    scopes = command.get("scopes", [])
+    _emit_snapshots(_CONTEXT, scopes, command.get("symbols", []))
+    if set(["ORDER", "DEAL"]).issubset(set(scopes)):
+        _mark_order_deal_reconciled()
     _ack(command, "SYNC_COMPLETED", message_id)
 
 
@@ -1208,10 +1229,29 @@ def _emit_snapshots(C=None, scopes=None, symbols=None):
 
 def snapshot_task(C=None):
     try:
-        _emit_snapshots(C)
+        _emit_snapshots(C, ["ACCOUNT", "POSITION"])
         _write_p0_probe(C)
     except Exception as exc:
         _write_event({"type": "ERROR_EVENT", "error_code": "SNAPSHOT_FAILED", "error_message": str(exc)[:200]})
+
+
+def order_deal_reconcile_task(C=None):
+    global _ORDER_DEAL_RECONCILE_REQUESTED
+    if _CONFIG is None:
+        return
+    interval = int(_CONFIG.get("order_deal_reconcile_seconds", 30))
+    if (not _ORDER_DEAL_RECONCILE_REQUESTED and
+            time.time() - _LAST_ORDER_DEAL_RECONCILE_AT < interval):
+        return
+    try:
+        _emit_snapshots(C, ["ORDER", "DEAL"])
+        _mark_order_deal_reconciled()
+    except Exception as exc:
+        _ORDER_DEAL_RECONCILE_REQUESTED = True
+        _write_event({
+            "type": "ERROR_EVENT", "error_code": "ORDER_DEAL_RECONCILE_FAILED",
+            "error_message": str(exc)[:200],
+        })
 
 
 def _p0_field_shape(value):
@@ -1370,6 +1410,7 @@ def init(C):
             "%dnMilliSecond" % int(_CONFIG.get("command_poll_interval_ms", 500)),
         )
         _schedule(C, "snapshot_task", "5nSecond")
+        _schedule(C, "order_deal_reconcile_task", "5nSecond")
         _schedule(C, "heartbeat_task", "5nSecond")
         if _CONFIG["account_type"] == "CREDIT":
             _schedule(C, "credit_reference_task", "180nSecond")
@@ -1383,6 +1424,7 @@ def after_init(C):
     global _STATUS
     try:
         _emit_snapshots(C)
+        _mark_order_deal_reconciled()
         _write_p0_probe(C)
         _STATUS = "READY"
         heartbeat_task(C)
@@ -1463,6 +1505,7 @@ def deal_callback(C, dealInfo):
 
 
 def orderError_callback(C, orderArgs, errMsg):
+    _request_order_deal_reconcile()
     _write_event({
         "type": "ERROR_EVENT", "error_code": "QMT_ORDER_ERROR",
         "error_message": str(errMsg)[:200],

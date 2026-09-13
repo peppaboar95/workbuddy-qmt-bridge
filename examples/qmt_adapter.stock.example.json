@@ -16,6 +16,7 @@
   "p0_probe_enabled": false,
   "max_batch": 10,
   "command_poll_interval_ms": 500,
+  "order_deal_reconcile_seconds": 30,
   "max_message_bytes": 65536,
   "adapter_max_volume": 500000,
   "adapter_max_notional": 200000.0,

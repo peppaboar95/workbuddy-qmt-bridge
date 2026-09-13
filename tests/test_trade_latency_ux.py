@@ -5,7 +5,9 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
+from workbuddy_qmt.assets import qmt_embedded_adapter as embedded_adapter
 from workbuddy_qmt.config import AccountConfig, BridgeConfig, RiskLimits
 from workbuddy_qmt.core import BridgeCore
 from workbuddy_qmt.db import Database
@@ -209,6 +211,68 @@ class TradeLatencyUxTests(unittest.TestCase):
         self.assertIn("wait_trade_intent", tools)
         self.assertIn("Batch every target symbol", tools["request_sync"]["description"])
         self.assertIn("call wait_trade_intent once", tools["submit_trade_intent"]["description"])
+
+    def test_adapter_uses_callbacks_with_bounded_full_reconciliation(self):
+        original = {
+            "config": embedded_adapter._CONFIG,
+            "last": embedded_adapter._LAST_ORDER_DEAL_RECONCILE_AT,
+            "requested": embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED,
+        }
+
+        def restore():
+            embedded_adapter._CONFIG = original["config"]
+            embedded_adapter._LAST_ORDER_DEAL_RECONCILE_AT = original["last"]
+            embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED = original["requested"]
+
+        self.addCleanup(restore)
+        embedded_adapter._CONFIG = {"order_deal_reconcile_seconds": 30}
+        embedded_adapter._LAST_ORDER_DEAL_RECONCILE_AT = time.time()
+        embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED = False
+
+        with (
+            mock.patch.object(embedded_adapter, "_emit_snapshots") as emit,
+            mock.patch.object(embedded_adapter, "_write_p0_probe"),
+        ):
+            embedded_adapter.snapshot_task("context")
+            emit.assert_called_once_with("context", ["ACCOUNT", "POSITION"])
+
+        with mock.patch.object(embedded_adapter, "_emit_snapshots") as emit:
+            embedded_adapter.order_deal_reconcile_task("context")
+            emit.assert_not_called()
+            embedded_adapter._request_order_deal_reconcile()
+            embedded_adapter.order_deal_reconcile_task("context")
+            emit.assert_called_once_with("context", ["ORDER", "DEAL"])
+            self.assertFalse(embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED)
+
+        with mock.patch.object(embedded_adapter, "_write_event"):
+            embedded_adapter.orderError_callback(None, {}, "broker rejected")
+        self.assertTrue(embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED)
+
+    def test_explicit_order_deal_sync_resets_reconcile_deadline(self):
+        original = {
+            "last": embedded_adapter._LAST_ORDER_DEAL_RECONCILE_AT,
+            "requested": embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED,
+        }
+
+        def restore():
+            embedded_adapter._LAST_ORDER_DEAL_RECONCILE_AT = original["last"]
+            embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED = original["requested"]
+
+        self.addCleanup(restore)
+        embedded_adapter._LAST_ORDER_DEAL_RECONCILE_AT = 0.0
+        embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED = True
+        with (
+            mock.patch.object(embedded_adapter, "_emit_snapshots") as emit,
+            mock.patch.object(embedded_adapter, "_ack") as ack,
+        ):
+            embedded_adapter._request_sync(
+                {"scopes": ["ACCOUNT", "POSITION", "ORDER", "DEAL"], "symbols": []},
+                "msg_sync",
+            )
+        emit.assert_called_once()
+        ack.assert_called_once()
+        self.assertGreater(embedded_adapter._LAST_ORDER_DEAL_RECONCILE_AT, 0)
+        self.assertFalse(embedded_adapter._ORDER_DEAL_RECONCILE_REQUESTED)
 
 
 if __name__ == "__main__":

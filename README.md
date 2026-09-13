@@ -99,6 +99,7 @@ MANUAL_LIVE 的 1–60 分钟时间授权只免除逐笔人工审批；每笔仍
 - 多标的交易先用一次 `request_sync`，把同一账户的全部目标放入 `symbols`，随后复用账户和持仓快照逐笔 `preview_trade`，不要按标的重复同步；
 - `submit_trade_intent` 返回 `QUEUED` 后，只调用一次 `wait_trade_intent`。如果等待超时，稍后按 `intent_id` 查询，绝不重新提交预览；
 - 新生成 Adapter 的命令轮询为 500ms，Worker 回报摄取为 250ms。已有部署必须重新生成并部署 `qmt_adapter.py`/`qmt_adapter.json` 后才会使用新的 Adapter 周期；
+- Adapter 每 5 秒刷新账户和持仓；委托/成交由 QMT 回调实时更新，并每 30 秒完整对账兜底。启动、`prepare_trade` 和显式 `request_sync` 仍会刷新委托/成交；
 - 上述优化不减少预览、确认、提交时硬风控或 Adapter 报单前复核。
 
 ## LIMITED_AUTO P1 流程
