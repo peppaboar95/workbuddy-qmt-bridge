@@ -20,9 +20,9 @@ WorkBuddy/MCP 与大 QMT 内置 Python 之间的本机、失败关闭型交易�
 
 ## 当前版本
 
-- 版本：0.3.4
+- 版本：0.3.5
 - 阶段：P1 LIMITED_AUTO 软件控制面完成
-- MCP 工具：31 个（当前源码含 2 个未发布的低延迟工作流工具）
+- MCP 工具：31 个
 - Python：Worker 需要 3.10 或更高版本
 - QMT Adapter：兼容 QMT 内置 Python 3.6 环境
 - 运行边界：仅绑定 127.0.0.1，不依赖 xtquant
@@ -58,17 +58,17 @@ SIM_SIGNAL 不是“只生成信号但不下单”。如果错误连接到真实
 
 普通用户优先从 [GitHub Releases](https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/latest) 下载完整 ZIP。安装器会自动核验 ZIP 内 wheel 的 SHA-256：
 
-- workbuddy-qmt-bridge-0.3.4.zip
-- workbuddy-qmt-bridge-0.3.4.zip.sha256
+- workbuddy-qmt-bridge-0.3.5.zip
+- workbuddy-qmt-bridge-0.3.5.zip.sha256
 - SHA256SUMS.txt
 
 完整解压后双击 `安装、升级或修复.cmd`。旧名称 `首次安装与配置.cmd` 仍作为兼容入口。需要手工安装 wheel 时，下载：
 
-- workbuddy_qmt_bridge-0.3.4-py3-none-any.whl
+- workbuddy_qmt_bridge-0.3.5-py3-none-any.whl
 
 Windows PowerShell：
 
-    python -m pip install .\workbuddy_qmt_bridge-0.3.4-py3-none-any.whl
+    python -m pip install .\workbuddy_qmt_bridge-0.3.5-py3-none-any.whl
     workbuddy-qmt setup
 
 从 0.3.2 开始，重复运行 setup 或使用 `setup --force` 都会保留已有 `qmt_profile.json`。有意重置时必须指定账户，并提供专用确认词：

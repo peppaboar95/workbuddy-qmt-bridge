@@ -21,9 +21,9 @@
 - [ ] 禁止强制推送和删除 main；
 - [ ] 确认 Actions 权限保持最小化，默认 GITHUB_TOKEN 仅 contents: read。
 
-## v0.3.4 Release
+## v0.3.5 Release
 
-- [ ] 创建带注释 Tag v0.3.4；
+- [ ] 创建带注释 Tag v0.3.5；
 - [ ] 先创建 Draft Release，不立即发布；
 - [ ] 上传 wheel、安装 ZIP、ZIP 单独哈希和 SHA256SUMS.txt；
 - [ ] 从 Draft Release 下载资产并在新的临时目录复核哈希；
