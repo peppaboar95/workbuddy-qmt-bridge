@@ -81,7 +81,7 @@ class ManagerUxTests(unittest.TestCase):
         worker_check = next(item for item in report["checks"] if item["name"] == "worker_running")
         self.assertFalse(worker_check["ok"])
 
-    def test_shortcuts_are_grouped_and_merge_verify_into_status(self):
+    def test_shortcuts_merge_verify_into_status_and_remove_obsolete_entries(self):
         desktop = os.path.join(self.temp.name, "Desktop")
         os.makedirs(desktop)
         obsolete = {
@@ -94,23 +94,26 @@ class ManagerUxTests(unittest.TestCase):
             with open(os.path.join(desktop, name), "wb") as stream:
                 stream.write(content)
 
-        with mock.patch("workbuddy_qmt.manager._desktop_dir", return_value=desktop):
-            result = create_shortcuts(
-                os.path.join(self.temp.name, "launcher.json"),
-                python_executable=sys.executable,
-            )
+        result = create_shortcuts(
+            os.path.join(self.temp.name, "launcher.json"),
+            target_dir=desktop,
+            python_executable=sys.executable,
+        )
 
-        shortcut_dir = os.path.join(desktop, "WorkBuddy QMT Bridge")
-        self.assertEqual(result["directory"], shortcut_dir)
+        self.assertEqual(result["directory"], desktop)
         self.assertEqual(
             {os.path.basename(item["path"]) for item in result["files"]},
             {"启动QMT桥接.cmd", "查看QMT桥接状态.cmd"},
         )
-        with open(os.path.join(shortcut_dir, "查看QMT桥接状态.cmd"), "rb") as stream:
+        with open(os.path.join(desktop, "查看QMT桥接状态.cmd"), "rb") as stream:
             status_script = stream.read()
         self.assertLess(status_script.index(b" verify --human"), status_script.index(b" status --human"))
-        self.assertTrue(all(not os.path.exists(os.path.join(desktop, name)) for name in obsolete))
-        self.assertTrue(result["desktop_migration"])
+        self.assertTrue(os.path.isfile(os.path.join(desktop, "启动QMT桥接.cmd")))
+        self.assertTrue(os.path.isfile(os.path.join(desktop, "查看QMT桥接状态.cmd")))
+        self.assertFalse(os.path.exists(os.path.join(desktop, "验证QMT桥接.cmd")))
+        self.assertFalse(os.path.exists(os.path.join(desktop, "打开QMT配置目录.cmd")))
+        self.assertTrue(result["obsolete_verify"]["removed"])
+        self.assertTrue(result["obsolete_open_qmt_ready"]["removed"])
 
     def test_support_bundle_excludes_account_id_and_secrets(self):
         bundle = generate_qmt_bundle(self.config_path, "main_stock", "private-account-001")

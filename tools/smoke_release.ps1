@@ -43,10 +43,11 @@ try {
 
     Push-Location $extract
     try {
-        Invoke-NativeChecked cmd.exe @("/d", "/c", 'setup.cmd --syntax-check') "Internal installer syntax check failed"
+        $internalInstaller = Join-Path $extract "installer"
+        Invoke-NativeChecked cmd.exe @("/d", "/c", '"installer\setup.cmd" --syntax-check') "Internal installer syntax check failed"
         Invoke-NativeChecked cmd.exe @("/d", "/c", '"安装、升级或修复.cmd" --verify-only') "Canonical installer hash verification failed"
         Invoke-NativeChecked cmd.exe @("/d", "/c", '"首次安装与配置.cmd" --verify-only') "Legacy installer compatibility failed"
-        $wheels = @(Get-ChildItem -LiteralPath $extract -Filter "*.whl" -File)
+        $wheels = @(Get-ChildItem -LiteralPath $internalInstaller -Filter "*.whl" -File)
         if ($wheels.Count -ne 1) { throw "Expected one wheel in the release ZIP" }
         Invoke-NativeChecked $Python @("-m", "pip", "install", "--no-deps", "--target", $site, $wheels[0].FullName) "Isolated wheel install failed"
         $env:PYTHONPATH = $site

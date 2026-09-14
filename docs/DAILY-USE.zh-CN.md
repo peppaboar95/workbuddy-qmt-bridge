@@ -4,7 +4,7 @@
 
 1. 打开并登录大 QMT；
 2. 启动每个已启用账户对应的 QMT 策略实例；
-3. 打开桌面的 `WorkBuddy QMT Bridge` 文件夹，双击 `启动QMT桥接.cmd`；
+3. 双击桌面的 `启动QMT桥接.cmd`；
 4. 不确定时直接按 Enter 使用 `OBSERVE_ONLY`；
 5. 保持 Worker 窗口打开；
 6. 打开或重启 WorkBuddy；
