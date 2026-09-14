@@ -27,6 +27,7 @@ jobs:
       - name: Check installer syntax paths
         shell: cmd
         run: |
+          setup.cmd --syntax-check
           "安装、升级或修复.cmd" --syntax-check
           "首次安装与配置.cmd" --syntax-check
 

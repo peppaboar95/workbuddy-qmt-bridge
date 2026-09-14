@@ -43,6 +43,7 @@ try {
 
     Push-Location $extract
     try {
+        Invoke-NativeChecked cmd.exe @("/d", "/c", 'setup.cmd --syntax-check') "Internal installer syntax check failed"
         Invoke-NativeChecked cmd.exe @("/d", "/c", '"安装、升级或修复.cmd" --verify-only') "Canonical installer hash verification failed"
         Invoke-NativeChecked cmd.exe @("/d", "/c", '"首次安装与配置.cmd" --verify-only') "Legacy installer compatibility failed"
         $wheels = @(Get-ChildItem -LiteralPath $extract -Filter "*.whl" -File)

@@ -41,8 +41,10 @@ $releaseNotesName = "RELEASE-v$Version.md"
 $releaseNotesPath = Join-Path $repoRoot "docs\$releaseNotesName"
 $installerName = "安装、升级或修复.cmd"
 $legacyInstallerName = "首次安装与配置.cmd"
+$setupName = "setup.cmd"
 $installerPath = Join-Path $repoRoot $installerName
 $legacyInstallerPath = Join-Path $repoRoot $legacyInstallerName
+$setupPath = Join-Path $repoRoot $setupName
 $quickStartPath = Join-Path $repoRoot "docs\QUICKSTART.zh-CN.md"
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
@@ -56,7 +58,7 @@ if (-not (Test-Path -LiteralPath $initPath -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf)) {
     throw "Release notes not found: $releaseNotesPath"
 }
-foreach ($requiredSource in @($installerPath, $legacyInstallerPath, $quickStartPath)) {
+foreach ($requiredSource in @($installerPath, $legacyInstallerPath, $setupPath, $quickStartPath)) {
     if (-not (Test-Path -LiteralPath $requiredSource -PathType Leaf)) {
         throw "Release source file not found: $requiredSource"
     }
@@ -110,6 +112,7 @@ try {
     Copy-Item -LiteralPath $wheelPath -Destination $stageFull
     Copy-Item -LiteralPath $installerPath -Destination $stageFull
     Copy-Item -LiteralPath $legacyInstallerPath -Destination $stageFull
+    Copy-Item -LiteralPath $setupPath -Destination $stageFull
     Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $stageFull
     Copy-Item -LiteralPath $releaseNotesPath -Destination $stageFull
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs\README-RELEASE.zh-CN.md") -Destination (Join-Path $stageFull "README-RELEASE.zh-CN.md")
@@ -143,6 +146,7 @@ try {
     $requiredEntries = @(
         $installerName,
         $legacyInstallerName,
+        $setupName,
         "LICENSE",
         "快速开始.md",
         "README-RELEASE.zh-CN.md",
