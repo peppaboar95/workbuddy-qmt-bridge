@@ -3,7 +3,8 @@ setlocal EnableExtensions
 chcp 65001 >nul
 set "PYTHONUTF8=1"
 title WorkBuddy QMT Bridge Setup
-cd /d "%~dp0"
+for %%D in ("%~dp0.") do set "SOURCE_ROOT=%%~fD"
+cd /d "%SOURCE_ROOT%"
 
 if /i "%~1"=="--syntax-check" (
   echo BATCH_SYNTAX_OK
@@ -38,6 +39,16 @@ if not defined PYTHON_CMD (
 for /f "usebackq delims=" %%V in (`%PYTHON_CMD% -c "import sys; print(sys.version.split()[0])"`) do set "PYTHON_VERSION=%%V"
 echo Python: %PYTHON_VERSION% using %PYTHON_CMD%
 echo.
+
+if /i "%~1"=="--source-path-check" (
+  %PYTHON_CMD% -c "import pathlib, sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).resolve() == pathlib.Path.cwd().resolve() else 1)" "%SOURCE_ROOT%"
+  if errorlevel 1 (
+    echo SOURCE_PATH_ERROR
+    exit /b 1
+  )
+  echo SOURCE_PATH_OK
+  exit /b 0
+)
 
 echo [Step 2/5] Locating the installation source...
 set "WHEEL="
@@ -111,7 +122,7 @@ if /i "%~1"=="--verify-only" (
 )
 echo [Step 3/5] Source tree selected; wheel verification is not applicable.
 echo [Step 4/5] Installing the source tree in editable mode...
-%PYTHON_CMD% -m pip --disable-pip-version-check install --user --editable "%~dp0"
+%PYTHON_CMD% -m pip --disable-pip-version-check install --user --editable "%SOURCE_ROOT%"
 
 :install_done
 if errorlevel 1 (

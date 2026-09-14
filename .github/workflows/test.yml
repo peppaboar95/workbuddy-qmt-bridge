@@ -28,6 +28,7 @@ jobs:
         shell: cmd
         run: |
           setup.cmd --syntax-check
+          setup.cmd --source-path-check
           "安装、升级或修复.cmd" --syntax-check
           "首次安装与配置.cmd" --syntax-check
 
