@@ -11,7 +11,7 @@
 1. 完整解压 Release ZIP；
 2. 双击 `安装、升级或修复.cmd`；
 3. 按账户目录中的 `部署说明.txt` 配置 QMT；
-4. 启动 Bridge 并运行 `验证QMT桥接.cmd`；
+4. 打开桌面的 `WorkBuddy QMT Bridge` 文件夹，启动 Bridge 并运行 `查看QMT桥接状态.cmd`；该脚本会先验证再显示状态；
 5. 重启 WorkBuddy，调用 `qmt_health`。
 
 ## 按任务查找

@@ -156,7 +156,7 @@ echo ============================================================
 echo Setup completed. Finish the first read-only connection:
 echo   1. Follow the per-account deployment guide opened by setup.
 echo   2. Keep qmt_mode=OBSERVE_ONLY and start the QMT strategy.
-echo   3. Start the desktop bridge, then run the desktop verification.
+echo   3. Start the desktop bridge, then run the combined verify and status script.
 echo   4. Restart WorkBuddy and call qmt_health.
 echo ============================================================
 pause

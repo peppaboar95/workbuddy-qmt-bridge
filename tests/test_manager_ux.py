@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -10,6 +11,7 @@ from unittest import mock
 from workbuddy_qmt.bootstrap import initialize
 from workbuddy_qmt.manager import (
     _ask_yes_no,
+    create_shortcuts,
     create_support_bundle,
     generate_qmt_bundle,
     set_account_enabled,
@@ -78,6 +80,37 @@ class ManagerUxTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         worker_check = next(item for item in report["checks"] if item["name"] == "worker_running")
         self.assertFalse(worker_check["ok"])
+
+    def test_shortcuts_are_grouped_and_merge_verify_into_status(self):
+        desktop = os.path.join(self.temp.name, "Desktop")
+        os.makedirs(desktop)
+        obsolete = {
+            "启动QMT桥接.cmd": b"@echo off\r\nworkbuddy_qmt.manager start --human\r\n",
+            "查看QMT桥接状态.cmd": b"@echo off\r\nworkbuddy_qmt.manager status --human\r\n",
+            "验证QMT桥接.cmd": b"@echo off\r\nworkbuddy_qmt.manager verify --human\r\n",
+            "打开QMT配置目录.cmd": b"@echo off\r\nworkbuddy_qmt.manager open qmt-ready --human\r\n",
+        }
+        for name, content in obsolete.items():
+            with open(os.path.join(desktop, name), "wb") as stream:
+                stream.write(content)
+
+        with mock.patch("workbuddy_qmt.manager._desktop_dir", return_value=desktop):
+            result = create_shortcuts(
+                os.path.join(self.temp.name, "launcher.json"),
+                python_executable=sys.executable,
+            )
+
+        shortcut_dir = os.path.join(desktop, "WorkBuddy QMT Bridge")
+        self.assertEqual(result["directory"], shortcut_dir)
+        self.assertEqual(
+            {os.path.basename(item["path"]) for item in result["files"]},
+            {"启动QMT桥接.cmd", "查看QMT桥接状态.cmd"},
+        )
+        with open(os.path.join(shortcut_dir, "查看QMT桥接状态.cmd"), "rb") as stream:
+            status_script = stream.read()
+        self.assertLess(status_script.index(b" verify --human"), status_script.index(b" status --human"))
+        self.assertTrue(all(not os.path.exists(os.path.join(desktop, name)) for name in obsolete))
+        self.assertTrue(result["desktop_migration"])
 
     def test_support_bundle_excludes_account_id_and_secrets(self):
         bundle = generate_qmt_bundle(self.config_path, "main_stock", "private-account-001")

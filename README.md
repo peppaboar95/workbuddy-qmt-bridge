@@ -13,8 +13,8 @@ WorkBuddy/MCP 与大 QMT 内置 Python 之间的本机、失败关闭型交易�
 1. 从 [GitHub Releases](https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/latest) 下载完整 ZIP 并解压到独立目录；
 2. 双击 `安装、升级或修复.cmd`，安装器会自动校验 wheel 哈希并启动中文配置向导；
 3. 按自动打开的账户目录中的 `部署说明.txt`，把 `qmt_adapter.py` 放入对应的大 QMT 策略并启动；
-4. 双击桌面的 `启动QMT桥接.cmd`，直接按 Enter 使用安全默认模式 `OBSERVE_ONLY`；
-5. 双击 `验证QMT桥接.cmd`。所有项目显示“完成”后，重启 WorkBuddy 并调用 `qmt_health`。
+4. 打开桌面的 `WorkBuddy QMT Bridge` 文件夹，双击 `启动QMT桥接.cmd`，直接按 Enter 使用安全默认模式 `OBSERVE_ONLY`；
+5. 打开桌面的 `WorkBuddy QMT Bridge` 文件夹，双击 `查看QMT桥接状态.cmd`；它会先验证完整连接，再显示当前状态。所有项目显示“完成”后，重启 WorkBuddy 并调用 `qmt_health`。
 
 完整图文步骤见 [快速开始](docs/QUICKSTART.zh-CN.md)。首次只读连接不需要签名 Profile，也不需要理解人工实盘或有限自动交易。
 

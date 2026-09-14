@@ -187,7 +187,7 @@ def _deployment_guide(account, account_dir, script_path, adapter_config_path, pr
         "2. 将 qmt_adapter.py 的完整内容复制到该策略编辑器；脚本中的配置路径已自动写好，不要手工修改。",
         "3. 保持 qmt_adapter.json 中的 qmt_mode=OBSERVE_ONLY。",
         "4. 确认策略绑定的是安装向导中填写的账户，然后手工启动策略。",
-        "5. 启动桌面的“启动QMT桥接.cmd”，再运行“查看QMT桥接状态.cmd”。",
+        "5. 打开桌面的“WorkBuddy QMT Bridge”文件夹，运行启动脚本，再运行状态脚本。",
         "6. 看到 Worker 和本账户 Adapter 均已就绪，才算完成首次只读连接。",
         "",
         "文件位置：",
@@ -580,9 +580,26 @@ def _cmd_value(value):
     return str(value).replace("%", "%%").replace('"', '""')
 
 
+def _remove_generated_shortcut(target_dir, name, markers, reason):
+    path = os.path.join(target_dir, name)
+    if not os.path.isfile(path):
+        return None
+    with open(path, "rb") as stream:
+        content = stream.read()
+    if all(marker in content for marker in markers):
+        os.remove(path)
+        return {"path": path, "removed": True}
+    return {"path": path, "removed": False, "reason": reason}
+
+
 def create_shortcuts(launcher_path, target_dir=None, python_executable=None, overwrite=True):
     launcher_path = os.path.abspath(launcher_path)
-    target_dir = os.path.abspath(target_dir or _desktop_dir())
+    use_default_target = target_dir is None
+    desktop_dir = _desktop_dir() if use_default_target else None
+    target_dir = os.path.abspath(
+        os.path.join(desktop_dir, "WorkBuddy QMT Bridge") if use_default_target else target_dir
+    )
+    os.makedirs(target_dir, exist_ok=True)
     python_executable = os.path.abspath(python_executable or sys.executable)
     prefix = '@echo off\r\nchcp 65001 >nul\r\nset "PYTHONUTF8=1"\r\n'
     command = '"%s" -m workbuddy_qmt.manager --launcher-config "%s"' % (
@@ -602,21 +619,17 @@ def create_shortcuts(launcher_path, target_dir=None, python_executable=None, ove
         ),
         "查看QMT桥接状态.cmd": (
             prefix + "title WorkBuddy QMT Bridge Status\r\n"
+            "echo Verifying the complete read-only bridge setup...\r\n"
+            "echo.\r\n" + command + " verify --human\r\n"
+            "set VERIFY_EXIT=%ERRORLEVEL%\r\n"
+            "echo.\r\n"
             "echo Checking the current bridge status...\r\n"
             "echo Diagnostics will run automatically only when the status is abnormal.\r\n"
             "echo.\r\n" + command + " status --human\r\n"
+            "set STATUS_EXIT=%ERRORLEVEL%\r\n"
             "echo.\r\npause\r\n"
-        ),
-        "验证QMT桥接.cmd": (
-            prefix + "title WorkBuddy QMT Bridge Verify\r\n"
-            "echo Verifying the complete read-only bridge setup...\r\n"
-            "echo.\r\n" + command + " verify --human\r\n"
-            "echo.\r\npause\r\n"
-        ),
-        "打开QMT配置目录.cmd": (
-            prefix + "title WorkBuddy QMT Bridge Files\r\n"
-            + command + " open qmt-ready --human\r\n"
-            "if errorlevel 1 pause\r\n"
+            "if not \"%STATUS_EXIT%\"==\"0\" exit /b %STATUS_EXIT%\r\n"
+            "exit /b %VERIFY_EXIT%\r\n"
         ),
     }
     results = []
@@ -631,45 +644,39 @@ def create_shortcuts(launcher_path, target_dir=None, python_executable=None, ove
                 {"python": python_executable, "launcher": launcher_path},
             )
         results.append(_write_changed(os.path.join(target_dir, name), encoded, overwrite=overwrite))
-    legacy_path = os.path.join(target_dir, "诊断QMT桥接.cmd")
-    legacy_result = None
-    if os.path.isfile(legacy_path):
-        with open(legacy_path, "rb") as stream:
-            legacy_content = stream.read()
-        generated_markers = (
-            b"@echo off",
-            b"workbuddy_qmt.manager",
-            b" doctor",
-        )
-        if all(marker in legacy_content for marker in generated_markers):
-            os.remove(legacy_path)
-            legacy_result = {"path": legacy_path, "removed": True}
-        else:
-            legacy_result = {
-                "path": legacy_path,
-                "removed": False,
-                "reason": "文件内容不是本项目生成的诊断脚本，已保留",
-            }
-    obsolete_mode_path = os.path.join(target_dir, "设置QMT桥接运行模式.cmd")
-    obsolete_mode_result = None
-    if os.path.isfile(obsolete_mode_path):
-        with open(obsolete_mode_path, "rb") as stream:
-            obsolete_mode_content = stream.read()
-        generated_markers = (b"@echo off", b"workbuddy_qmt.manager", b" mode --human")
-        if all(marker in obsolete_mode_content for marker in generated_markers):
-            os.remove(obsolete_mode_path)
-            obsolete_mode_result = {"path": obsolete_mode_path, "removed": True}
-        else:
-            obsolete_mode_result = {
-                "path": obsolete_mode_path,
-                "removed": False,
-                "reason": "文件内容不是本项目生成的模式脚本，已保留",
-            }
+    obsolete_specs = (
+        ("legacy_doctor", "诊断QMT桥接.cmd", (b"@echo off", b"workbuddy_qmt.manager", b" doctor"), "文件内容不是本项目生成的诊断脚本，已保留"),
+        ("obsolete_mode", "设置QMT桥接运行模式.cmd", (b"@echo off", b"workbuddy_qmt.manager", b" mode --human"), "文件内容不是本项目生成的模式脚本，已保留"),
+        ("obsolete_verify", "验证QMT桥接.cmd", (b"@echo off", b"workbuddy_qmt.manager", b" verify --human"), "文件内容不是本项目生成的验证脚本，已保留"),
+        ("obsolete_open_qmt_ready", "打开QMT配置目录.cmd", (b"@echo off", b"workbuddy_qmt.manager", b" open qmt-ready --human"), "文件内容不是本项目生成的目录脚本，已保留"),
+    )
+    obsolete_results = {
+        key: _remove_generated_shortcut(target_dir, name, markers, reason)
+        for key, name, markers, reason in obsolete_specs
+    }
+    desktop_migration = []
+    if use_default_target:
+        desktop_specs = (
+            ("启动QMT桥接.cmd", (b"@echo off", b"workbuddy_qmt.manager", b" start --human")),
+            ("查看QMT桥接状态.cmd", (b"@echo off", b"workbuddy_qmt.manager", b" status --human")),
+        ) + tuple((name, markers) for _key, name, markers, _reason in obsolete_specs)
+        for name, markers in desktop_specs:
+            cleanup = _remove_generated_shortcut(
+                desktop_dir,
+                name,
+                markers,
+                "桌面同名文件不是本项目生成的脚本，已保留",
+            )
+            if cleanup is not None:
+                desktop_migration.append(cleanup)
     return {
         "directory": target_dir,
         "files": results,
-        "legacy_doctor": legacy_result,
-        "obsolete_mode": obsolete_mode_result,
+        "legacy_doctor": obsolete_results["legacy_doctor"],
+        "obsolete_mode": obsolete_results["obsolete_mode"],
+        "obsolete_verify": obsolete_results["obsolete_verify"],
+        "obsolete_open_qmt_ready": obsolete_results["obsolete_open_qmt_ready"],
+        "desktop_migration": desktop_migration,
     }
 
 
@@ -857,7 +864,7 @@ def print_status_human(report):
     }.get(state, state))
     if state == "STOPPED":
         print("\n当前结论：桥接服务没有运行，WorkBuddy 暂时无法访问 QMT 数据。")
-        print("下一步：双击桌面的“启动QMT桥接.cmd”，并保持该窗口打开。")
+        print("下一步：打开桌面的“WorkBuddy QMT Bridge”文件夹，双击“启动QMT桥接.cmd”，并保持该窗口打开。")
         return
     if state == "CONFLICT":
         print("原因: %s" % probe.get("message", "本地端口不能由当前 Worker 使用"))
@@ -1196,7 +1203,7 @@ def print_verify_human(report):
         print("下一步：重启 WorkBuddy，在对话中调用 qmt_health，再查询账户和持仓。")
     else:
         print("尚未完成首次只读连接。先处理上方标记为“待处理”的项目。")
-        print("可双击桌面的“查看QMT桥接状态.cmd”获取进一步诊断。")
+        print("可在桌面的“WorkBuddy QMT Bridge”文件夹中双击“查看QMT桥接状态.cmd”获取进一步诊断。")
     print("\n%s" % report.get("workbuddy_note", ""))
 
 
@@ -1627,11 +1634,11 @@ def run_setup(args, launcher_path):
         if mcp_result["backup"]:
             print("MCP 备份: %s" % mcp_result["backup"])
         print("启动器配置: %s" % launcher_path)
-        print("\n[向导 5/5] 创建桌面启动入口")
-        print("建议创建启动和状态两个脚本；启动时选择 Worker 运行模式，状态异常时自动继续诊断。")
+        print("\n[向导 5/5] 创建桌面工具目录")
+        print("建议在桌面的 WorkBuddy QMT Bridge 文件夹中创建启动和状态两个脚本。")
     if not args.no_shortcuts:
         target = os.path.abspath(args.shortcut_dir) if args.shortcut_dir else None
-        if interactive and target is None and not _ask_yes_no("在桌面创建启动和状态脚本", True):
+        if interactive and target is None and not _ask_yes_no("在桌面创建 WorkBuddy QMT Bridge 工具文件夹", True):
             target = ""
         if target != "":
             shortcut_result = create_shortcuts(launcher_path, target_dir=target, python_executable=sys.executable)
@@ -1654,7 +1661,7 @@ def run_setup(args, launcher_path):
         "account_changes": account_changes,
         "opened_qmt_ready": opened_qmt_ready,
         "warnings": [] if bundles else ["尚未生成 QMT Adapter，请重新运行 setup 并填写账户号"],
-        "next_steps": ["按账户目录中的部署说明配置并启动 QMT 策略", "双击启动QMT桥接.cmd", "运行验证QMT桥接.cmd", "重启 WorkBuddy 并调用 qmt_health"],
+        "next_steps": ["按账户目录中的部署说明配置并启动 QMT 策略", "双击启动QMT桥接.cmd", "运行查看QMT桥接状态.cmd", "重启 WorkBuddy 并调用 qmt_health"],
     }
     if interactive:
         print("\n============================================================")
@@ -1673,8 +1680,8 @@ def run_setup(args, launcher_path):
             print("未创建桌面脚本，可稍后重新运行 setup。")
         print("\nUSER ACTION - 完成首次只读连接：")
         print("  1. 按账户目录中的“部署说明.txt”创建并启动 QMT 策略。")
-        print("  2. 保持 OBSERVE_ONLY，双击桌面的“启动QMT桥接.cmd”。")
-        print("  3. 双击“验证QMT桥接.cmd”，直到所有项目均显示“完成”。")
+        print("  2. 保持 OBSERVE_ONLY，打开桌面的“WorkBuddy QMT Bridge”文件夹并双击“启动QMT桥接.cmd”。")
+        print("  3. 双击“查看QMT桥接状态.cmd”，它会先验证完整连接，再显示当前状态。")
         print("  4. 重启 WorkBuddy，调用 qmt_health，再查询账户和持仓。")
         print("完成 P0 现场验证和 Profile 签名前，不要切换到其他模式。")
     else:
