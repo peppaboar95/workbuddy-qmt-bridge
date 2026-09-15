@@ -1,15 +1,15 @@
 # GitHub 发布清单
 
-目标仓库：https://github.com/peppaboar95/workbuddy-qmt-bridge
+目标仓库：[workbuddy-qmt-bridge](https://github.com/peppaboar95/workbuddy-qmt-bridge)。
 
 ## 创建仓库前
 
-- [ ] 确认 LICENSE 为 MIT，版权主体为 peppaboar95；
+- [ ] 确认 [LICENSE](../LICENSE) 为 MIT，版权主体为 peppaboar95；
 - [ ] 检查 Git 历史中不存在密钥、令牌、账户号、数据库和未脱敏材料；
-- [ ] 从干净源码运行测试和 tools/build_release.ps1；
+- [ ] 按[贡献指南](../CONTRIBUTING.md)从干净源码运行测试和 `tools/build_release.ps1`；
 - [ ] 验证 wheel 隔离安装、版本号、入口点和 ZIP 内容；
 - [ ] 核对 SHA256SUMS.txt 覆盖全部 Release 二进制资产；
-- [ ] 最后审阅 README、SECURITY 和当前版本 Release 文案。
+- [ ] 最后审阅 [README](../README.md)、[安全政策](../SECURITY.md)和[当前版本 Release 文案](RELEASE-v0.3.6.md)。
 
 ## GitHub 仓库设置
 
@@ -21,9 +21,9 @@
 - [ ] 禁止强制推送和删除 main；
 - [ ] 确认 Actions 权限保持最小化，默认 GITHUB_TOKEN 仅 contents: read。
 
-## v0.3.5 Release
+## v0.3.6 Release
 
-- [ ] 创建带注释 Tag v0.3.5；
+- [ ] 创建带注释 Tag v0.3.6；
 - [ ] 先创建 Draft Release，不立即发布；
 - [ ] 上传 wheel、安装 ZIP、ZIP 单独哈希和 SHA256SUMS.txt；
 - [ ] 从 Draft Release 下载资产并在新的临时目录复核哈希；

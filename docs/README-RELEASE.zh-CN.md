@@ -1,6 +1,6 @@
-# WorkBuddy-QMT Bridge 使用文档
+# WorkBuddy-QMT Bridge 发布包使用说明
 
-当前版本为 `0.3.5`。本版集中缩短 MCP 下单工作流等待，并降低 QMT Adapter 的周期查询开销；交易确认、硬风控、数据库 schema 和 Profile 签名边界均未放宽。
+当前版本为 `0.3.6`。本版新增启动时自动同步 Adapter 模式，并整理桌面入口、安装包目录与文档导航；交易确认、硬风控、数据库 schema 和 Profile 签名边界均未放宽。
 
 ## 第一次使用
 
@@ -12,14 +12,14 @@
 2. 双击 `安装、升级或修复.cmd`；
 3. 按账户目录中的 `部署说明.txt` 配置 QMT；
 4. 启动 Bridge 并运行 `查看QMT桥接状态.cmd`；该脚本会先验证再显示状态；
+5. 重启 WorkBuddy，调用 `qmt_health`。
 
 ## 解压后的目录
 
-- 根目录只保留安装入口、`快速开始.md` 和许可证；
-- `installer` 包含内部安装器、wheel 和 wheel 哈希，请勿单独移动其中的文件；
-- `docs` 包含详细使用文档、发布说明和验证记录；
-- `examples` 包含示例配置。
-5. 重启 WorkBuddy，调用 `qmt_health`。
+- 根目录包含 `安装、升级或修复.cmd`、兼容入口 `首次安装与配置.cmd`、`快速开始.md` 和 `LICENSE`；
+- `installer/` 包含内部安装器、wheel 和 wheel 哈希，请勿单独移动其中的文件；
+- `docs/` 包含详细使用文档、当前版本发布说明和 P1 验证记录；
+- `examples/` 包含[示例配置](../examples/README.md)。
 
 ## 按任务查找
 
@@ -32,7 +32,8 @@
 | 解决安装、Worker、Adapter 和 MCP 问题 | [排障与脱敏诊断](TROUBLESHOOTING.zh-CN.md) |
 | 判断 Python、WorkBuddy、QMT 与券商支持边界 | [兼容性矩阵](COMPATIBILITY.zh-CN.md) |
 | 查询全部 MCP 参数、响应和错误码 | [在线 API 参考](https://peppaboar95.github.io/workbuddy-qmt-bridge/) |
-| 查看 P1 软件验证范围 | [P1-VALIDATION.zh-CN.md](P1-VALIDATION.zh-CN.md) |
+| 查看当前版本改动与升级要求 | [v0.3.6 发布说明](RELEASE-v0.3.6.md) |
+| 查看 v0.3.0 的 P1 软件验证范围 | [P1 软件验证记录（v0.3.0）](P1-VALIDATION.zh-CN.md) |
 
 ## 常用入口
 

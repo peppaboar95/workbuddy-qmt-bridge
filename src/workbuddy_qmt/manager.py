@@ -442,6 +442,12 @@ def _adapter_sync_issues(config, account, script_path, adapter_path, profile_pat
     except (OSError, UnicodeError) as exc:
         issues.append("qmt_adapter.py 无法按 GBK 读取: %s" % exc)
 
+    issues.extend(_adapter_profile_issues(config, adapter, profile))
+    return issues
+
+
+def _adapter_profile_issues(config, adapter, profile):
+    issues = []
     expected_profile_fields = {
         "profile_id": adapter.get("expected_profile_id"),
         "qmt_build": adapter.get("expected_qmt_build"),
@@ -485,6 +491,84 @@ def _adapter_sync_issues(config, account, script_path, adapter_path, profile_pat
             except Exception as exc:
                 issues.append("Profile 签名校验失败: %s" % exc)
     return issues
+
+
+def sync_adapter_modes(config_path, mode):
+    if mode not in RUN_MODES:
+        raise ManagerError("INVALID_MODE_SELECTION", "无效运行模式")
+    config_path = os.path.abspath(config_path)
+    config = load_config(config_path)
+    ready_root = os.path.join(_runtime_root_from_config(config_path), "qmt_ready")
+    pending = []
+    results = []
+    # Validate every enabled account before changing any on-disk mode.
+    for account in config.accounts.values():
+        if not account.enabled:
+            continue
+        path = os.path.join(ready_root, _safe_alias(account.alias), "qmt_adapter.json")
+        if not os.path.isfile(path):
+            if mode == "OBSERVE_ONLY":
+                results.append({"account_alias": account.alias, "path": path, "changed": False, "missing": True})
+                continue
+            raise ManagerError(
+                "ADAPTER_SYNC_FAILED", "缺少 Adapter 配置，请先配置该账户",
+                {"account_alias": account.alias, "path": path},
+            )
+        with open(path, "rb") as stream:
+            original = stream.read()
+        try:
+            adapter = json.loads(original)
+        except (ValueError, UnicodeError) as exc:
+            raise ManagerError("INVALID_JSON", "QMT Adapter 配置不是有效 JSON: %s" % exc, {"path": path})
+        if not isinstance(adapter, dict):
+            raise ManagerError("INVALID_JSON", "QMT Adapter 配置顶层必须是 JSON 对象", {"path": path})
+        expected = {
+            "account_alias": account.alias,
+            "account_type": account.account_type,
+            "adapter_instance": account.adapter_instance,
+            "data_dir": os.path.abspath(config.data_dir),
+            "key_file": os.path.abspath(config.key_file),
+        }
+        drift = [name for name, value in expected.items() if adapter.get(name) != value]
+        if drift:
+            raise ManagerError(
+                "ADAPTER_SYNC_FAILED", "Adapter 账户或运行目录绑定不一致，未同步模式",
+                {"account_alias": account.alias, "path": path, "fields": drift},
+            )
+        updated = dict(adapter, qmt_mode=mode)
+        if mode != "OBSERVE_ONLY":
+            profile_path = adapter.get("mapping_profile")
+            if not isinstance(profile_path, str) or not os.path.isabs(profile_path) or not os.path.isfile(profile_path):
+                raise ManagerError("ADAPTER_SYNC_FAILED", "缺少本机 Profile 文件", {"account_alias": account.alias, "path": path})
+            profile = _read_json_object(profile_path, "QMT mapping profile")
+            issues = _adapter_profile_issues(config, updated, profile)
+            if issues:
+                raise ManagerError(
+                    "ADAPTER_SYNC_FAILED", "Adapter 交易模式同步前的 Profile 校验未通过",
+                    {"account_alias": account.alias, "path": path, "issues": issues},
+                )
+        result = {"account_alias": account.alias, "path": path, "changed": adapter.get("qmt_mode") != mode, "backup": None}
+        results.append(result)
+        if result["changed"]:
+            pending.append((path, original, _pretty_json(updated), result))
+    attempted = []
+    try:
+        for path, original, encoded, result in pending:
+            result["backup"] = _backup(path)
+            attempted.append((path, original))
+            atomic_write_bytes(path, encoded)
+    except OSError as exc:
+        rollback_errors = []
+        for path, original in reversed(attempted):
+            try:
+                atomic_write_bytes(path, original)
+            except OSError as rollback:
+                rollback_errors.append({"path": path, "error": str(rollback)})
+        raise ManagerError(
+            "ADAPTER_SYNC_FAILED", "Adapter 配置同步失败，Worker 未启动: %s" % exc,
+            {"rollback_errors": rollback_errors},
+        )
+    return results
 
 
 def infer_qmt_account_id(config_path, account):
@@ -757,6 +841,7 @@ def select_start_mode(config_path, requested=None, confirm=None, interactive=Fal
             raise ManagerError("LOCAL_CONFIRMATION_REQUIRED", "桥接处于熔断状态，请先解除熔断")
         if interactive:
             print("当前模式: %s；熔断状态保持开启，启动后仍不会投递交易" % current)
+        sync_adapter_modes(config_path, "OBSERVE_ONLY")
         return current
     if interactive:
         _human_header("启动前选择 Worker 运行模式")
@@ -793,6 +878,7 @@ def select_start_mode(config_path, requested=None, confirm=None, interactive=Fal
                 raise ManagerError("LOCAL_CONFIRMATION_REQUIRED", "确认文字不匹配，未修改运行模式")
             confirm = confirmation
     if requested is None:
+        sync_adapter_modes(config_path, current)
         return current
     if requested not in RUN_MODES:
         raise ManagerError("INVALID_MODE_SELECTION", "无效运行模式")
@@ -801,6 +887,7 @@ def select_start_mode(config_path, requested=None, confirm=None, interactive=Fal
             "LOCAL_CONFIRMATION_REQUIRED",
             "启动 %s 前必须传入 --confirm %s" % (requested, requested),
         )
+    sync_adapter_modes(config_path, requested)
     if requested == current:
         mode = current
     else:
@@ -808,7 +895,7 @@ def select_start_mode(config_path, requested=None, confirm=None, interactive=Fal
     if interactive:
         print("\n本次启动模式: %s" % mode)
         if requested == "SIM_SIGNAL":
-            print("注意：还必须确认 QMT Adapter 为 SIM_SIGNAL、profile 已验证签名，且策略连接模拟柜台。")
+            print("Adapter 模式已同步为 SIM_SIGNAL；仍须确认策略连接模拟柜台。")
         elif requested == "MANUAL_LIVE":
             print("注意：还必须单独创建短时 LIVE 授权，并对每笔预览进行本机审批。")
         elif requested == "LIMITED_AUTO":
@@ -992,6 +1079,7 @@ def start_worker(config_path, human=False, start_mode=None, confirm=None):
                 _human_header("正在启动 WorkBuddy-QMT Worker")
                 print("配置文件: %s" % config_path)
                 print("运行模式: %s" % selected_mode)
+                print("Adapter 配置: 已自动同步启用账户的 qmt_mode（熔断时保持 OBSERVE_ONLY）。")
                 print("监听地址: http://%s:%d" % (config.host, config.port))
                 print("日志文件: %s" % log_path)
                 print("\n窗口说明：")

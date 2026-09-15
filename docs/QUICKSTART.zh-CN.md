@@ -13,7 +13,7 @@ QMT 账户号通常可以在大 QMT 的账户选择、资产查询或策略绑�
 
 ## 1. 安装
 
-1. 从 [GitHub Releases](https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/latest) 下载 `workbuddy-qmt-bridge-0.3.5.zip`；
+1. 从 [GitHub Releases](https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/latest) 下载 `workbuddy-qmt-bridge-0.3.6.zip`；
 2. 使用 Windows“全部解压”放到一个新的独立目录；
 3. 双击 `安装、升级或修复.cmd`；
 4. 安装器会先检查 Python，再自动校验 wheel 的 SHA-256。校验失败时不要继续安装；

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WorkBuddy-QMT Bridge · API 参考文档 v0.3.5</title>
+<title>WorkBuddy-QMT Bridge · API 参考文档 v0.3.6</title>
 <style>
 :root{
   --bg:#ffffff;
@@ -296,7 +296,7 @@ ol.plain li{margin-bottom:8px}
     <span class="mark">Q</span>
     <span>WorkBuddy-QMT Bridge<small>&nbsp;· API 参考</small></span>
   </div>
-  <span class="ver">v0.3.5</span>
+  <span class="ver">v0.3.6</span>
   <div class="spacer"></div>
   <div class="searchbox">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -417,7 +417,7 @@ ol.plain li{margin-bottom:8px}
   <p>本桥接服务<b>不托管任何资金接口</b>，也不连接任何远端服务。Worker 只监听本机回环地址，QMT Adapter 以策略脚本形式运行在大 QMT 客户端内部，两者通过本机签名文件队列通信。</p>
 
   <div class="note ok">
-    <p><strong>v0.3.5 优化了 MCP 下单等待与 QMT 查询开销。</strong>新增 <code class="inl">prepare_trade</code> 与 <code class="inl">wait_trade_intent</code>，缩短 Worker / Adapter 默认轮询间隔；委托与成交改为实时回调优先、每 30 秒完整对账兜底。安装资产见 <a href="https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/tag/v0.3.5">GitHub Release v0.3.5</a>。</p>
+    <p><strong>v0.3.6 新增启动时自动同步 Adapter 模式。</strong>新版 Adapter 在命令轮询前读取模式变化，默认约 500ms；支持先启动 QMT 或先启动桥接。升级后需更新一次 QMT 策略中的 Adapter 源码。安装资产见 <a href="https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/tag/v0.3.6">GitHub Release v0.3.6</a>。</p>
   </div>
 
   <div class="grid2">
@@ -3296,7 +3296,7 @@ python -c "import workbuddy_qmt; print(workbuddy_qmt.__version__)"</pre>
   </div>
 
   <div class="note warn">
-    <p><strong>控制台只改 Worker 本机状态。</strong>它不会修改 <code class="inl">qmt_adapter.json</code>，也不会重启 QMT 策略。切模式后仍须：<b>停止策略 → 改 <code class="inl">qmt_mode</code> → 重启策略 → 启动 Worker → <code class="inl">qmt_health</code> 复核</b>。</p>
+    <p><strong>推荐通过启动桥接选择模式。</strong><code class="inl">workbuddy-qmt start</code> 会自动同步已启用账户的 <code class="inl">qmt_mode</code>，新版 Adapter 自动读取变化。直接调用控制台 <code class="inl">set-mode</code> 仍只修改 Worker 状态。其他 Adapter 配置变化仍需重启 QMT 策略，模式同步不创建交易授权。</p>
   </div>
 
   <h3>升级到 0.3.0</h3>
@@ -3356,7 +3356,7 @@ python -c "import workbuddy_qmt; print(workbuddy_qmt.__version__)"</pre>
   <div class="foot">
     <dl class="foot-meta">
       <div><dt>文档版本</dt><dd>2026-09-13 源码修订版</dd></div>
-      <div><dt>适用桥接版本</dt><dd>0.3.5</dd></div>
+      <div><dt>适用桥接版本</dt><dd>0.3.6</dd></div>
       <div><dt>MCP 工具数</dt><dd>31</dd></div>
       <div><dt>运行环境</dt><dd>Windows · Python ≥ 3.10</dd></div>
       <div><dt>传输协议</dt><dd>MCP stdio + 本机 HTTP /rpc</dd></div>
@@ -3366,8 +3366,8 @@ python -c "import workbuddy_qmt; print(workbuddy_qmt.__version__)"</pre>
     </dl>
 
     <h4>关于本文档</h4>
-    <p>本文档描述 WorkBuddy-QMT Bridge 0.3.5 的 MCP 工具接口、传输协议、风控原因码与配置参数，内容与源码中的 <code class="inl">mcp_server.py</code>、<code class="inl">core.py</code>、<code class="inl">worker.py</code>、<code class="inl">config.py</code> 实现一一对应。示例中的账户别名、标的、价格、委托号与金额均为虚构演示值，不包含任何真实账户信息、密钥或令牌。</p>
-    <p>当前安装资产与升级说明：<a href="https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/tag/v0.3.5">Release v0.3.5</a>；项目源码与历史：<a href="https://github.com/peppaboar95/workbuddy-qmt-bridge">GitHub 仓库</a>。</p>
+    <p>本文档描述 WorkBuddy-QMT Bridge 0.3.6 的 MCP 工具接口、传输协议、风控原因码与配置参数，内容与源码中的 <code class="inl">mcp_server.py</code>、<code class="inl">core.py</code>、<code class="inl">worker.py</code>、<code class="inl">config.py</code> 实现一一对应。示例中的账户别名、标的、价格、委托号与金额均为虚构演示值，不包含任何真实账户信息、密钥或令牌。</p>
+    <p>当前安装资产与升级说明：<a href="https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/tag/v0.3.6">Release v0.3.6</a>；项目源码与历史：<a href="https://github.com/peppaboar95/workbuddy-qmt-bridge">GitHub 仓库</a>。</p>
     <p>本文件为自包含 HTML：不加载任何 CDN、外部字体或远程脚本，可离线双击打开，也可直接托管在任意静态站点上。</p>
 
     <div class="disclaimer">

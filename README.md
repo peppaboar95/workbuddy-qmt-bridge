@@ -20,7 +20,7 @@ WorkBuddy/MCP 与大 QMT 内置 Python 之间的本机、失败关闭型交易�
 
 ## 当前版本
 
-- 版本：0.3.5
+- 版本：0.3.6
 - 阶段：P1 LIMITED_AUTO 软件控制面完成
 - MCP 工具：31 个
 - Python：Worker 需要 3.10 或更高版本
@@ -58,17 +58,17 @@ SIM_SIGNAL 不是“只生成信号但不下单”。如果错误连接到真实
 
 普通用户优先从 [GitHub Releases](https://github.com/peppaboar95/workbuddy-qmt-bridge/releases/latest) 下载完整 ZIP。安装器会自动核验 ZIP 内 wheel 的 SHA-256：
 
-- workbuddy-qmt-bridge-0.3.5.zip
-- workbuddy-qmt-bridge-0.3.5.zip.sha256
+- workbuddy-qmt-bridge-0.3.6.zip
+- workbuddy-qmt-bridge-0.3.6.zip.sha256
 - SHA256SUMS.txt
 
 完整解压后双击 `安装、升级或修复.cmd`。旧名称 `首次安装与配置.cmd` 仍作为兼容入口。需要手工安装 wheel 时，下载：
 
-- workbuddy_qmt_bridge-0.3.5-py3-none-any.whl
+- workbuddy_qmt_bridge-0.3.6-py3-none-any.whl
 
 Windows PowerShell：
 
-    python -m pip install .\workbuddy_qmt_bridge-0.3.5-py3-none-any.whl
+    python -m pip install .\workbuddy_qmt_bridge-0.3.6-py3-none-any.whl
     workbuddy-qmt setup
 
 从 0.3.2 开始，重复运行 setup 或使用 `setup --force` 都会保留已有 `qmt_profile.json`。有意重置时必须指定账户，并提供专用确认词：
@@ -92,6 +92,10 @@ Windows PowerShell：
 7. 只有 readiness 无阻断且策略边界明确时，才创建 LIMITED_AUTO P1 许可。
 
 MANUAL_LIVE 的 1–60 分钟时间授权只免除逐笔人工审批；每笔仍必须重新同步、预览并通过硬风控。LIMITED_AUTO 的许可最长 720 分钟，但不能跨交易日，并受完整策略边界和累计预算约束。
+
+## 启动时自动同步模式
+
+启动桥接时，所选模式会自动同步到已启用账户的 Adapter 配置。新版 Adapter 默认在约 500ms 内读取模式变化，两种启动顺序均可使用。升级后须按账户部署说明更新一次 QMT 策略中的 Adapter 源码；之后切换模式无需手工修改 JSON。详见 [日常使用](docs/DAILY-USE.zh-CN.md)。
 
 ## 低延迟调用建议
 
@@ -137,6 +141,7 @@ runtime、数据库、WAL/SHM、日志、队列、执行日志、签名 Profile�
 
 ## 文档
 
+- [文档导航](docs/README.md)
 - 快速开始：docs/QUICKSTART.zh-CN.md
 - 日常使用：docs/DAILY-USE.zh-CN.md
 - 升级、备份与恢复：docs/UPGRADE-RECOVERY.zh-CN.md

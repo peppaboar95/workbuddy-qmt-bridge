@@ -34,7 +34,7 @@ python -m workbuddy_qmt.console `
 
 只有 readiness 无阻断、策略范围明确且目标环境已验收时，才使用 `LIMITED_AUTO`：
 
-1. 本机同步 Worker 和 Adapter 模式；
+1. 启动桥接时选择 `LIMITED_AUTO` 并完成本机确认，Worker 和新版 Adapter 模式会自动同步；
 2. 调用 `check_limited_auto_readiness`；
 3. 向操作者展示账户、标的、动作、策略版本、时段和全部额度；
 4. 明确确认后调用 `authorize_limited_auto`；
@@ -42,4 +42,4 @@ python -m workbuddy_qmt.console `
 6. 健康异常后排除原因、重新同步、通过 readiness，再显式恢复；
 7. 结束时撤销许可。撤销不会自动撤销券商侧已有委托。
 
-完整字段、确认词、状态机和错误码见[在线 API 参考](https://peppaboar95.github.io/workbuddy-qmt-bridge/)；软件测试范围见 [P1-VALIDATION.zh-CN.md](P1-VALIDATION.zh-CN.md)。
+完整字段、确认词、状态机和错误码见[在线 API 参考](https://peppaboar95.github.io/workbuddy-qmt-bridge/)；v0.3.0 的软件测试范围见 [P1 软件验证记录](P1-VALIDATION.zh-CN.md)。

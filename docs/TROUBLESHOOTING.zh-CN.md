@@ -18,8 +18,16 @@ workbuddy-qmt verify --human
 | Worker 未运行 | 双击 `启动QMT桥接.cmd` 并保持窗口打开 |
 | 端口冲突 | 关闭旧 Worker或占用 17642 的其他程序，再重新启动 |
 | Adapter 离线 | 确认 QMT 已登录、对应策略已启动，并部署了当前 `qmt_ready` 中的脚本 |
-| Adapter/Profile 不同步 | 停止 Worker/QMT，运行账户 `configure --force`；已有 Profile 默认保留 |
+| Adapter/Profile 不同步 | 运行模式由启动桥接自动同步；其他配置变化先停止 Worker/QMT，再运行账户 `configure --force`；已有 Profile 默认保留 |
 | WorkBuddy 看不到工具 | 运行 `verify`，确认 MCP 配置通过后完整重启 WorkBuddy |
+
+## 启动时 Adapter 模式同步失败
+
+- 配置缺失或 JSON 无效：先完成对应账户配置，修复 JSON 后再启动；
+- 账户或运行目录绑定不一致：核对账户目录，不要通过改模式掩盖绑定问题；
+- 交易模式 Profile 校验失败：按 [P0/P1 高级配置](P0-P1-ADVANCED.zh-CN.md) 完成目标环境验证、绑定与本机签名；
+- 文件模式已同步但 QMT 仍显示旧模式：确认已部署支持自动读取模式的新版 `qmt_adapter.py`；旧副本需要更新并重启策略；
+- QMT 报 `ADAPTER_MODE_SYNC_FAILED`：Adapter 已停止处理命令；若同时修改了模式之外的配置，须重启 QMT 策略。
 
 ## MCP 下单耗时较长
 

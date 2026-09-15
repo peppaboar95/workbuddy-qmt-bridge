@@ -41,4 +41,4 @@ workbuddy-qmt setup `
 - 必须回退时：停止全部进程，整体恢复升级前的软件包和 runtime 备份；不能只安装旧 wheel 配合新数据库；
 - 存在 `SUBMIT_UNKNOWN` 时：先在券商柜台人工核对，不要通过回退或重新提交来猜测结果。
 
-当前版本的数据库、Profile 和 Adapter 协议变化以对应的 `RELEASE-vX.Y.Z.md` 为准。
+当前版本的数据库、Profile 和 Adapter 协议变化见 [v0.3.6 发布说明](RELEASE-v0.3.6.md)。

@@ -19,6 +19,10 @@ import uuid
 ADAPTER_CONFIG_PATH = r"D:\workbuddy-qmt-bridge\config\qmt_adapter.json"
 
 _CONFIG = None
+_CONFIG_SOURCE = None
+_MODE_CONFIG_STAMP = None
+_MODE_RELOAD_STATUS = None
+_MODE_RELOAD_ERROR = None
 _KEYS = None
 _ACTIVE_KEY = None
 _CONTEXT = None
@@ -118,8 +122,11 @@ def _load_json(path):
 
 
 def _load_config():
-    global _CONFIG, _KEYS, _ACTIVE_KEY
+    global _CONFIG, _KEYS, _ACTIVE_KEY, _CONFIG_SOURCE
+    global _MODE_CONFIG_STAMP, _MODE_RELOAD_STATUS, _MODE_RELOAD_ERROR
     config = _load_json(ADAPTER_CONFIG_PATH)
+    source = dict(config)
+    source.pop("qmt_mode", None)
     required = [
         "account_alias", "account_type", "adapter_instance", "qmt_account_id",
         "data_dir", "key_file", "mapping_profile", "qmt_mode", "strategy_name",
@@ -228,6 +235,49 @@ def _load_config():
     _ensure_dirs()
     if config["qmt_mode"] != "OBSERVE_ONLY":
         _load_verified_profile()
+    _CONFIG_SOURCE = source
+    _MODE_CONFIG_STAMP = None
+    _MODE_RELOAD_STATUS = None
+    _MODE_RELOAD_ERROR = None
+
+
+def _refresh_config_mode():
+    global _MODE_CONFIG_STAMP, _MODE_RELOAD_STATUS, _MODE_RELOAD_ERROR, _STATUS
+    try:
+        info = os.stat(ADAPTER_CONFIG_PATH)
+        stamp = (info.st_mtime_ns, info.st_size)
+        if stamp == _MODE_CONFIG_STAMP and _MODE_RELOAD_ERROR is None:
+            return True
+        config = _load_json(ADAPTER_CONFIG_PATH)
+        mode = config.get("qmt_mode")
+        if mode not in ("OBSERVE_ONLY", "SIM_SIGNAL", "MANUAL_LIVE", "LIMITED_AUTO"):
+            raise RuntimeError("invalid qmt_mode")
+        source = dict(config)
+        source.pop("qmt_mode", None)
+        if source != _CONFIG_SOURCE:
+            raise RuntimeError("adapter settings changed; restart the QMT strategy")
+        if mode != "OBSERVE_ONLY":
+            _load_verified_profile()
+        _CONFIG["qmt_mode"] = mode
+        _MODE_CONFIG_STAMP = stamp
+        if _MODE_RELOAD_STATUS is not None:
+            _STATUS = _MODE_RELOAD_STATUS
+        _MODE_RELOAD_STATUS = None
+        _MODE_RELOAD_ERROR = None
+        return True
+    except Exception as exc:
+        if _MODE_RELOAD_STATUS is None:
+            _MODE_RELOAD_STATUS = _STATUS
+        _STATUS = "ERROR"
+        _CONFIG["qmt_mode"] = "OBSERVE_ONLY"
+        error = str(exc)[:200]
+        if error != _MODE_RELOAD_ERROR:
+            _MODE_RELOAD_ERROR = error
+            _write_event({
+                "type": "ERROR_EVENT", "error_code": "ADAPTER_MODE_SYNC_FAILED",
+                "error_message": error,
+            })
+        return False
 
 
 def _partition():
@@ -1103,7 +1153,7 @@ def _process_file(path):
 
 def poll_commands(C=None):
     global _LAST_SCAN
-    if _CONFIG is None:
+    if _CONFIG is None or not _refresh_config_mode():
         return
     directory = os.path.join(_partition(), "commands")
     names = sorted([name for name in os.listdir(directory) if name.endswith(".json")])[:int(_CONFIG.get("max_batch", 10))]
