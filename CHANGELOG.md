@@ -9,6 +9,12 @@
 - 风险决策指纹不再绑定动态价格笼子的实时基准/边界值；只要最终限价、笼子规则和风控结果未变，活跃行情不会导致 `SNAPSHOT_CHANGED`。
 - 账户可用资金在决策指纹中按分归一化，忽略 QMT 浮点换算产生的分以下尾差，真实的分级变化仍会触发重预览。
 - 明确 `MARKET_DATA_STALE` 检查的是请求中的 `signal_evidence.quote_at`；QMT 快照新鲜度仍使用 `QUOTE_SNAPSHOT_STALE`。
+- 修复 Worker 已运行时再次打开启动器会在模式选择前直接返回的问题；现在重新选择会同步 Worker 与所有已启用 Adapter，且不会重复启动 Worker。
+- 本机控制台 `set-mode` 现在也执行同一套 Adapter 账户/Profile 校验与模式同步，不再只修改 Worker 数据库。
+
+### Changed
+
+- `qmt_health` 现在返回每个账户的 `adapter_mode` 与 `mode_matches`；Worker/Adapter 模式不一致时该账户不会报告 `ready=true`。
 
 ## 0.3.6 - 2026-09-16
 

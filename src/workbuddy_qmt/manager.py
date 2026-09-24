@@ -1047,6 +1047,15 @@ def start_worker(config_path, human=False, start_mode=None, confirm=None):
     config_path = os.path.abspath(config_path)
     probe = probe_worker(config_path)
     if probe["state"] == "RUNNING":
+        selected_mode = None
+        if human or start_mode is not None:
+            selected_mode = select_start_mode(
+                config_path,
+                requested=start_mode,
+                confirm=confirm,
+                interactive=human and start_mode is None,
+            )
+            probe = probe_worker(config_path)
         if human:
             issues = _status_issues(config_path, probe)
             print_status_human({
@@ -1055,7 +1064,10 @@ def start_worker(config_path, human=False, start_mode=None, confirm=None):
                 "worker": probe,
                 "issues": issues,
             })
-            print("\n无需重复启动：现有 Worker 将继续运行。")
+            if selected_mode is not None:
+                print("\n现有 Worker 将继续运行；Worker 与 Adapter 模式已同步为 %s。" % selected_mode)
+            else:
+                print("\n无需重复启动：现有 Worker 将继续运行。")
         else:
             print(json.dumps(probe, ensure_ascii=False, indent=2))
         return 0

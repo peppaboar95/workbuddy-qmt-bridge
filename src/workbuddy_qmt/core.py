@@ -218,17 +218,25 @@ class BridgeCore:
                 heartbeat = connection.execute(
                     "SELECT * FROM heartbeats WHERE adapter_instance=?", (account.adapter_instance,)
                 ).fetchone()
+                heartbeat_payload = _payload(heartbeat) or {}
                 snapshot = self._latest_account_row(connection, account.alias)
                 depths = self.queue.depths(account.adapter_instance)
                 heartbeat_age = self._age_seconds(heartbeat["received_at"]) if heartbeat else None
                 snapshot_age = self._age_seconds(snapshot["captured_at"]) if snapshot else None
-                ready = bool(heartbeat and heartbeat["status"] == "READY" and heartbeat_age <= 15)
+                adapter_mode = heartbeat_payload.get("qmt_mode")
+                mode_matches = bool(heartbeat and adapter_mode == mode)
+                ready = bool(
+                    heartbeat and heartbeat["status"] == "READY" and
+                    heartbeat_age <= 15 and mode_matches
+                )
                 auto_status = self._limited_auto_status(connection, account, include_health=False)
                 accounts.append({
                     "account_alias": account.alias,
                     "account_type": account.account_type,
                     "adapter_instance": account.adapter_instance,
                     "adapter_status": heartbeat["status"] if heartbeat else "OFFLINE",
+                    "adapter_mode": adapter_mode,
+                    "mode_matches": mode_matches,
                     "heartbeat_age_seconds": heartbeat_age,
                     "account_snapshot_age_seconds": snapshot_age,
                     "ready": ready,

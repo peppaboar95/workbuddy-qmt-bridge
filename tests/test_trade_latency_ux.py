@@ -285,6 +285,32 @@ class TradeLatencyUxTests(unittest.TestCase):
         self.assertIn("MARKET_DATA_STALE", stale["risk"]["reasons"])
         self.assertLess(stale["price_guard"]["quote_age_seconds"], 1)
 
+    def test_health_exposes_worker_adapter_mode_mismatch(self):
+        now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds")
+        heartbeat = {
+            "type": "HEARTBEAT",
+            "status": "READY",
+            "qmt_mode": "SIM_SIGNAL",
+            "adapter_instance": self.account.adapter_instance,
+        }
+        with self.database.transaction(immediate=True) as connection:
+            connection.execute(
+                "INSERT INTO heartbeats(adapter_instance,account_alias,status,occurred_at,received_at,payload_json) VALUES(?,?,?,?,?,?)",
+                (
+                    self.account.adapter_instance,
+                    self.account.alias,
+                    "READY",
+                    now,
+                    now,
+                    json.dumps(heartbeat),
+                ),
+            )
+
+        account = self.core.qmt_health()["accounts"][0]
+        self.assertEqual(account["adapter_mode"], "SIM_SIGNAL")
+        self.assertFalse(account["mode_matches"])
+        self.assertFalse(account["ready"])
+
     def test_database_serializes_worker_writers(self):
         first_entered = threading.Event()
         release_first = threading.Event()

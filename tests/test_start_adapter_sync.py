@@ -221,6 +221,20 @@ class StartAdapterSyncTests(unittest.TestCase):
         sync.assert_not_called()
         self.assertEqual(self._bytes(self.bundle["adapter_config"]), before)
 
+    def test_local_console_set_mode_also_synchronizes_adapter(self):
+        self._verify_profile(self.bundle)
+
+        result = _console(
+            self.config_path,
+            "set-mode",
+            mode="SIM_SIGNAL",
+            confirm="SIM_SIGNAL",
+        )
+
+        self.assertEqual(result["mode"], "SIM_SIGNAL")
+        self.assertEqual(self._read(self.bundle["adapter_config"])["qmt_mode"], "SIM_SIGNAL")
+        self.assertEqual(_console(self.config_path, "status")["state"]["mode"], "SIM_SIGNAL")
+
     def test_desktop_enter_downgrades_worker_and_adapter_to_observation(self):
         self._verify_profile(self.bundle)
         select_start_mode(self.config_path, requested="SIM_SIGNAL", confirm="SIM_SIGNAL")
@@ -248,16 +262,59 @@ class StartAdapterSyncTests(unittest.TestCase):
         self.assertEqual(state["halted"], "true")
         self.assertEqual(state["mode"], "LIMITED_AUTO")
 
-    def test_running_worker_is_not_reconfigured_on_repeated_start(self):
+    def test_running_worker_without_a_new_selection_is_not_reconfigured(self):
         with (
             mock.patch("workbuddy_qmt.manager.probe_worker", return_value={"state": "RUNNING"}),
             mock.patch("workbuddy_qmt.manager.sync_adapter_modes") as sync,
             mock.patch("workbuddy_qmt.manager.worker_main") as worker,
             contextlib.redirect_stdout(io.StringIO()),
         ):
-            self.assertEqual(start_worker(self.config_path, start_mode="OBSERVE_ONLY"), 0)
+            self.assertEqual(start_worker(self.config_path), 0)
         sync.assert_not_called()
         worker.assert_not_called()
+
+    def test_running_worker_applies_an_explicit_mode_selection(self):
+        self._verify_profile(self.bundle)
+        probes = [
+            {"state": "RUNNING", "response": {"data": {"mode": "OBSERVE_ONLY"}}},
+            {"state": "RUNNING", "response": {"data": {"mode": "SIM_SIGNAL"}}},
+        ]
+        with (
+            mock.patch("workbuddy_qmt.manager.probe_worker", side_effect=probes),
+            mock.patch("workbuddy_qmt.manager.worker_main") as worker,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(
+                start_worker(
+                    self.config_path,
+                    start_mode="SIM_SIGNAL",
+                    confirm="SIM_SIGNAL",
+                ),
+                0,
+            )
+
+        worker.assert_not_called()
+        self.assertEqual(_console(self.config_path, "status")["state"]["mode"], "SIM_SIGNAL")
+        self.assertEqual(self._read(self.bundle["adapter_config"])["qmt_mode"], "SIM_SIGNAL")
+
+    def test_desktop_launcher_reselects_mode_for_a_running_worker(self):
+        self._verify_profile(self.bundle)
+        probes = [
+            {"state": "RUNNING", "response": {"data": {"mode": "OBSERVE_ONLY", "accounts": []}}},
+            {"state": "RUNNING", "response": {"data": {"mode": "MANUAL_LIVE", "accounts": []}}},
+        ]
+        with (
+            mock.patch("workbuddy_qmt.manager.probe_worker", side_effect=probes),
+            mock.patch("builtins.input", side_effect=["3", "MANUAL_LIVE"]),
+            mock.patch("workbuddy_qmt.manager.print_status_human"),
+            mock.patch("workbuddy_qmt.manager.worker_main") as worker,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(start_worker(self.config_path, human=True), 0)
+
+        worker.assert_not_called()
+        self.assertEqual(_console(self.config_path, "status")["state"]["mode"], "MANUAL_LIVE")
+        self.assertEqual(self._read(self.bundle["adapter_config"])["qmt_mode"], "MANUAL_LIVE")
 
 
 class RunningAdapterModeTests(unittest.TestCase):

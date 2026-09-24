@@ -162,6 +162,13 @@ def run(args):
             raise BridgeError("INVALID_REQUEST", "invalid run mode")
         if args.mode != "OBSERVE_ONLY" and args.confirm != args.mode:
             raise BridgeError("LOCAL_CONFIRMATION_REQUIRED", "pass --confirm %s" % args.mode)
+        # Import lazily because manager owns Adapter deployment validation and
+        # imports this module for its database-side console operations.
+        from .manager import ManagerError, sync_adapter_modes
+        try:
+            sync_adapter_modes(args.config, args.mode)
+        except ManagerError as exc:
+            raise BridgeError(exc.code, exc.message, exc.details)
         with database.transaction(immediate=True) as connection:
             halted = connection.execute("SELECT value FROM system_state WHERE key='halted'").fetchone()
             if halted and halted["value"] == "true":
