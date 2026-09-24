@@ -884,7 +884,7 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
       <tr><td><code>CREDIT_CAPACITY_UNAVAILABLE</code></td><td>动作所需额度快照缺失。</td><td>先跑 <code>request_credit_precheck</code>。</td></tr>
       <tr><td><code>CREDIT_QUERY_IN_PROGRESS</code></td><td>已有信用额度查询在执行。</td><td>等待后用 <code>get_credit_capacity</code> 取结果。</td></tr>
       <tr><td><code>CREDIT_QUERY_RATE_LIMITED</code></td><td>距上次查询不足 <code>credit_query_cooldown_seconds</code>（默认 180 秒）。</td><td>读 <code>details.retry_after_seconds</code> 后重试。</td></tr>
-      <tr><td><code>MARKET_DATA_STALE</code></td><td>行情不足以计算价格笼子或涨跌停。</td><td>恢复行情源并重新同步。</td></tr>
+      <tr><td><code>MARKET_DATA_STALE</code></td><td>请求中的 <code>signal_evidence.quote_at</code> 超过 <code>max_quote_age_seconds</code>；它与返回的 <code>price_guard.quote_age_seconds</code> 是两条独立时钟。</td><td>刷新信号证据时间；QMT 行情快照过期会另报 <code>QUOTE_SNAPSHOT_STALE</code>。</td></tr>
       <tr><td><code>SYNC_TIMEOUT</code></td><td><code>prepare_trade</code> 在限定时间内未收到完整同步结果。</td><td>确认 QMT 策略在运行后安全重试；超时不会创建预览或报单。</td></tr>
       <tr><td><code>SYNC_FAILED</code></td><td>QMT 拒绝或未能完成准备阶段所需同步。</td><td>读取 <code>details.status</code> 并检查 Adapter / QMT 状态。</td></tr>
     </tbody>
@@ -1926,7 +1926,7 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
     </table></div>
 
     <div class="note ok">
-      <p><strong>0.2.3 起的指纹语义。</strong>提交一致性已从"所有快照 UUID 必须完全不变"改为"<b>风险决策必须保持一致</b>"。仅快照重新编号，或行情波动只改变市值/总资产/现价而未改变最终委托与风险输入时，<b>不再</b>返回 <code class="inl">SNAPSHOT_CHANGED</code>。但可用资金、可卖量、最终限价或数量、活动委托、日内额度、信用指标任一实质变化，仍会要求重新预览。</p>
+      <p><strong>0.2.3 起的指纹语义。</strong>提交一致性已从"所有快照 UUID 必须完全不变"改为"<b>风险决策必须保持一致</b>"。仅快照重新编号，或行情波动只改变市值/总资产/现价而未改变最终委托与风险输入时，<b>不再</b>返回 <code class="inl">SNAPSHOT_CHANGED</code>。但可用资金的整分变化、可卖量、最终限价或数量、活动委托、日内额度、信用指标任一实质变化，仍会要求重新预览；分以下的浮点尾差会被忽略。</p>
     </div>
 
     <div class="note danger">
@@ -2991,7 +2991,7 @@ python -m workbuddy_qmt.console --config "&lt;runtime&gt;\config\bridge.json" se
       <tr><td><code>ACCOUNT_SNAPSHOT_STALE</code></td><td>账户快照缺失或超过 <code>max_snapshot_age_seconds</code>。</td></tr>
       <tr><td><code>POSITION_SNAPSHOT_STALE</code></td><td>持仓快照缺失或超龄。</td></tr>
       <tr><td><code>QUOTE_SNAPSHOT_STALE</code></td><td>行情快照缺失或超过 <code>max_quote_age_seconds</code>。</td></tr>
-      <tr><td><code>MARKET_DATA_STALE</code></td><td>行情不足以计算价格笼子或涨跌停。</td></tr>
+      <tr><td><code>MARKET_DATA_STALE</code></td><td><code>signal_evidence.quote_at</code> 超过 <code>max_quote_age_seconds</code>；不是 QMT 快照的 <code>quote_age_seconds</code>。</td></tr>
       <tr><td><code>PRICE_DEVIATION_EXCEEDED</code></td><td>价格偏离超过 <code>max_deviation_pct</code>。</td></tr>
       <tr><td><code>INSTRUMENT_NOT_ALLOWED</code></td><td>标的不在账户白名单内。</td></tr>
       <tr><td><code>ACTIVE_ORDER_CONFLICT</code></td><td>同标的存在活动委托。</td></tr>

@@ -66,7 +66,12 @@ class TradeLatencyUxTests(unittest.TestCase):
                 "bid_price": 9.99, "ask_price": 10.0, "price_tick": 0.01,
                 "lower_limit": 8.0, "upper_limit": 12.0,
                 "trading_phase": "CONTINUOUS_AUCTION",
-                "dynamic_cage": {"applied": True, "buy_upper": 10.2, "sell_lower": 9.8},
+                "dynamic_cage": {
+                    "applied": True,
+                    "rule": "SSE_SZSE_2_PERCENT_OR_10_TICKS",
+                    "buy_upper": 10.2,
+                    "sell_lower": 9.8,
+                },
             }
             connection.execute(
                 "INSERT INTO quote_snapshots(account_alias,snapshot_id,symbol,captured_at,received_at,payload_json) VALUES(?,?,?,?,?,?)",
@@ -174,6 +179,111 @@ class TradeLatencyUxTests(unittest.TestCase):
                 connection.execute("SELECT COUNT(*) AS n FROM trade_intents").fetchone()["n"],
                 1,
             )
+
+    def test_submit_ignores_moving_cage_benchmarks_and_subcent_cash_noise(self):
+        preview = self.core.preview_trade(self._request())
+        with self.database.transaction(immediate=True) as connection:
+            account_row = connection.execute(
+                "SELECT payload_json FROM account_snapshots WHERE snapshot_id='acct_1'"
+            ).fetchone()
+            account = json.loads(account_row["payload_json"])
+            account["available_cash"] = 900000.000000125
+            connection.execute(
+                "UPDATE account_snapshots SET payload_json=? WHERE snapshot_id='acct_1'",
+                (json.dumps(account),),
+            )
+
+            quote_row = connection.execute(
+                "SELECT payload_json FROM quote_snapshots WHERE snapshot_id='quote_1'"
+            ).fetchone()
+            quote = json.loads(quote_row["payload_json"])
+            quote.update({"last_price": 10.03, "bid_price": 10.02, "ask_price": 10.03})
+            quote["dynamic_cage"] = {
+                "applied": True,
+                "rule": "SSE_SZSE_2_PERCENT_OR_10_TICKS",
+                "buy_benchmark": 10.03,
+                "sell_benchmark": 10.02,
+                "buy_upper": 10.23,
+                "sell_lower": 9.82,
+            }
+            connection.execute(
+                "UPDATE quote_snapshots SET payload_json=? WHERE snapshot_id='quote_1'",
+                (json.dumps(quote),),
+            )
+
+        intent = self.core.submit_trade_intent(preview["preview_id"])
+        self.assertEqual(intent["status"], "QUEUED")
+
+    def test_submit_rejects_cage_change_that_changes_resolved_order(self):
+        request = self._request()
+        request["price_policy"]["limit_price"] = 10.5
+        preview = self.core.preview_trade(request)
+        self.assertEqual(preview["resolved_order"]["limit_price"], 10.2)
+
+        with self.database.transaction(immediate=True) as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM quote_snapshots WHERE snapshot_id='quote_1'"
+            ).fetchone()
+            quote = json.loads(row["payload_json"])
+            quote["dynamic_cage"]["buy_upper"] = 10.21
+            connection.execute(
+                "UPDATE quote_snapshots SET payload_json=? WHERE snapshot_id='quote_1'",
+                (json.dumps(quote),),
+            )
+
+        with self.assertRaises(BridgeError) as captured:
+            self.core.submit_trade_intent(preview["preview_id"])
+        self.assertEqual(captured.exception.code, "RISK_REJECTED")
+        self.assertEqual(captured.exception.details["reason"], "SNAPSHOT_CHANGED")
+
+    def test_submit_rejects_material_cash_change(self):
+        preview = self.core.preview_trade(self._request())
+        with self.database.transaction(immediate=True) as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM account_snapshots WHERE snapshot_id='acct_1'"
+            ).fetchone()
+            account = json.loads(row["payload_json"])
+            account["available_cash"] = 899999.99
+            connection.execute(
+                "UPDATE account_snapshots SET payload_json=? WHERE snapshot_id='acct_1'",
+                (json.dumps(account),),
+            )
+
+        with self.assertRaises(BridgeError) as captured:
+            self.core.submit_trade_intent(preview["preview_id"])
+        self.assertEqual(captured.exception.code, "RISK_REJECTED")
+        self.assertEqual(captured.exception.details["reason"], "SNAPSHOT_CHANGED")
+
+    def test_future_quote_times_are_fresh_but_stale_signal_evidence_is_rejected(self):
+        future = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=3)).isoformat(
+            timespec="milliseconds"
+        )
+        with self.database.transaction(immediate=True) as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM quote_snapshots WHERE snapshot_id='quote_1'"
+            ).fetchone()
+            quote = json.loads(row["payload_json"])
+            quote["tick_at"] = future
+            connection.execute(
+                "UPDATE quote_snapshots SET payload_json=? WHERE snapshot_id='quote_1'",
+                (json.dumps(quote),),
+            )
+
+        fresh_request = self._request("future_quote")
+        fresh_request["signal_evidence"] = {"quote_at": future}
+        fresh = self.core.preview_trade(fresh_request)
+        self.assertNotIn("MARKET_DATA_STALE", fresh["risk"]["reasons"])
+        self.assertLess(fresh["price_guard"]["quote_age_seconds"], 1)
+
+        stale_request = self._request("stale_signal")
+        stale_request["signal_evidence"] = {
+            "quote_at": (
+                dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=31)
+            ).isoformat(timespec="milliseconds")
+        }
+        stale = self.core.preview_trade(stale_request)
+        self.assertIn("MARKET_DATA_STALE", stale["risk"]["reasons"])
+        self.assertLess(stale["price_guard"]["quote_age_seconds"], 1)
 
     def test_database_serializes_worker_writers(self):
         first_entered = threading.Event()

@@ -83,6 +83,30 @@ def _material_payload(payload):
     }
 
 
+def _money_decision_value(value):
+    """Normalize broker cash values to their material (cent) precision."""
+    return round(float(value), 2)
+
+
+def _price_guard_decision(price_guard):
+    """Keep price-guard outcomes while excluding moving quote benchmarks."""
+    cage = price_guard.get("dynamic_cage")
+    return {
+        "allowed": price_guard.get("allowed"),
+        "reasons": price_guard.get("reasons"),
+        "requested_limit_price": price_guard.get("requested_limit_price"),
+        "resolved_limit_price": price_guard.get("resolved_limit_price"),
+        "adjusted": price_guard.get("adjusted"),
+        "adjustments": price_guard.get("adjustments"),
+        "trading_phase": price_guard.get("trading_phase"),
+        "daily_limit": price_guard.get("daily_limit"),
+        "dynamic_cage": ({
+            "applied": cage.get("applied"),
+            "rule": cage.get("rule"),
+        } if isinstance(cage, dict) else cage),
+    }
+
+
 class BridgeCore:
     def __init__(self, config, database, keyring, file_queue, ingester):
         self.config = config
@@ -1040,18 +1064,18 @@ class BridgeCore:
                     )
                     reasons.extend(auto_reasons)
             decision_data = {
-                "version": 1,
+                "version": 2,
                 "account_alias": account.alias,
                 "symbol": symbol,
                 "resolved_action": resolved_action,
                 "resolved_order": resolved_order,
-                "account": {"available_cash": available_cash},
+                "account": {"available_cash": _money_decision_value(available_cash)},
                 "position": {
                     "total_volume": current_volume,
                     "available_volume": int(position.get("available_volume", 0) or 0),
                     "frozen_volume": int(position.get("frozen_volume", 0) or 0),
                 },
-                "price_guard": price_guard,
+                "price_guard": _price_guard_decision(price_guard),
                 "active_orders": sorted([{
                     "qmt_order_id": row["qmt_order_id"],
                     "status": row["status"],

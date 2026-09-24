@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### Fixed
+
+- 风险决策指纹不再绑定动态价格笼子的实时基准/边界值；只要最终限价、笼子规则和风控结果未变，活跃行情不会导致 `SNAPSHOT_CHANGED`。
+- 账户可用资金在决策指纹中按分归一化，忽略 QMT 浮点换算产生的分以下尾差，真实的分级变化仍会触发重预览。
+- 明确 `MARKET_DATA_STALE` 检查的是请求中的 `signal_evidence.quote_at`；QMT 快照新鲜度仍使用 `QUOTE_SNAPSHOT_STALE`。
+
 ## 0.3.6 - 2026-09-16
 
 ### Added
