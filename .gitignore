@@ -56,3 +56,6 @@ qmt_profile.json
 # Diagnostics and local review artifacts
 diagnostic*/
 github-publish-preview/
+probe-output/
+qmt-probe-*/
+.mmap-i-*/

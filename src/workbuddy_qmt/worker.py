@@ -19,7 +19,16 @@ from .util import iso_now, new_id
 WORKER_QUEUE_INTERVAL_SECONDS = 0.25
 
 
-def build_runtime(config_path=None):
+def _make_mmap_gateway(core, config_path):
+    if any(account.enabled and account.adapter_transport == 'mmap'
+           for account in core.config.accounts.values()):
+        from .mmap_gateway import MmapGateway
+        resolved_path = config_path or os.environ.get('WORKBUDDY_QMT_CONFIG', 'config/bridge.json')
+        return MmapGateway(core, resolved_path)
+    return None
+
+
+def build_runtime(config_path=None, start_mmap=True):
     config = load_config(config_path)
     if not ipaddress.ip_address(config.host).is_loopback:
         raise BridgeError("CONFIG_ERROR", "worker must bind to a loopback address")
@@ -32,6 +41,7 @@ def build_runtime(config_path=None):
     ingester = EventIngester(config, database, queue)
     ingester.reconcile_terminal_evidence()
     core = BridgeCore(config, database, keyring, queue, ingester)
+    core.mmap_gateway = _make_mmap_gateway(core, config_path) if start_mmap else None
     return config, database, core
 
 
@@ -41,12 +51,21 @@ class RuntimeLoop(threading.Thread):
         self.core = core
         self.interval = interval
         self.stop_event = threading.Event()
+        self._mmap_errors = {}
 
     def run(self):
         while not self.stop_event.is_set():
             try:
                 self.core.ingester.scan_once()
                 self.core.dispatch_pending_commands()
+                gateway = getattr(self.core, 'mmap_gateway', None)
+                if gateway is not None:
+                    errors = gateway.poll_once().get('errors', {})
+                    for alias, error in errors.items():
+                        code = error.get('code', 'MMAP_ERROR')
+                        if self._mmap_errors.get(alias) != code:
+                            print('mmap gateway error [%s]: %s' % (alias, code), file=sys.stderr, flush=True)
+                    self._mmap_errors = {alias: error.get('code', 'MMAP_ERROR') for alias, error in errors.items()}
             except Exception as exc:
                 print("queue loop error: %s" % exc, file=sys.stderr, flush=True)
             self.stop_event.wait(self.interval)
@@ -147,7 +166,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="WorkBuddy-QMT bridge worker")
     parser.add_argument("--config", default=None)
     args = parser.parse_args(argv)
-    config, database, core = build_runtime(args.config)
+    # Acquire the listening port before fencing any existing mmap session.
+    # A second Worker which cannot bind must not invalidate the running one.
+    config, database, core = build_runtime(args.config, start_mmap=False)
     try:
         with open(config.worker_token_file, "r", encoding="ascii") as stream:
             token = stream.read().strip()
@@ -155,20 +176,28 @@ def main(argv=None):
         raise SystemExit("cannot read worker token: %s" % exc)
     if len(token) < 32:
         raise SystemExit("worker token is too short")
-    loop = RuntimeLoop(core)
-    loop.start()
     server = ThreadingHTTPServer((config.host, config.port), make_handler(core, database, token, config.max_message_bytes))
     server.daemon_threads = True
-    previous_handlers = _install_console_signal_handlers()
-    print("worker listening on http://%s:%d" % (config.host, config.port), file=sys.stderr, flush=True)
+    loop = None
+    previous_handlers = {}
     try:
+        core.mmap_gateway = _make_mmap_gateway(core, args.config)
+        loop = RuntimeLoop(core)
+        loop.start()
+        previous_handlers = _install_console_signal_handlers()
+        print("worker listening on http://%s:%d" % (config.host, config.port), file=sys.stderr, flush=True)
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
         pass
     finally:
-        loop.stop_event.set()
+        if loop is not None:
+            loop.stop_event.set()
         server.server_close()
-        loop.join(timeout=2)
+        if loop is not None:
+            # Do not close a mapping while a persistence/ACK operation owns it.
+            loop.join()
+        if core.mmap_gateway is not None:
+            core.mmap_gateway.close()
         _restore_console_signal_handlers(previous_handlers)
     return 0
 

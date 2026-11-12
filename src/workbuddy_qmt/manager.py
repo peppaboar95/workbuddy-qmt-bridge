@@ -1,4 +1,5 @@
 import argparse
+import ast
 import ctypes
 import datetime as dt
 import hashlib
@@ -16,7 +17,7 @@ import zipfile
 
 from . import __version__
 from .bootstrap import initialize
-from .config import load_config
+from .config import effective_mmap_name, load_config
 from .console import run as run_console_command
 from .errors import BridgeError
 from .modes import RUN_MODES
@@ -200,6 +201,18 @@ def _deployment_guide(account, account_dir, script_path, adapter_config_path, pr
         "不要分享本目录中的账户号、Profile、密钥路径或诊断数据。",
         "",
     ]
+    if account.adapter_transport == "mmap":
+        lines[7] = "2. 将 qmt_adapter.py 的完整内容复制到策略编辑器；映射和账户绑定已写入脚本。"
+        lines.extend([
+            "mmap 部署补充：",
+            "- 脚本包含消息签名密钥，必须像 data/secrets 一样保护；不要上传、分享或放进诊断包。",
+            "- QMT 侧不需要 open/os 文件接口；Worker 仍使用本目录 JSON 配置和 Profile。",
+            "- 必须在 QMT 侧注入 MMAP_LOCK_FACTORY(name)，打开与 Worker 相同的 Win32 命名 mutex（映射名加 _lock）；确切 QMT API 待确认。",
+            "- 同步接口和券商兼容性尚未实测；缺少同步接口会拒绝初始化。",
+            "- Worker 与 QMT 必须处于同一 Windows 登录会话，修改映射设置后须重新生成并加载脚本。",
+            "- P0 签名后填写外部配置的三个 expected_* 绑定字段，再用 account configure --force 重新生成并加载脚本；同账户的自定义设置和 Profile 会保留。",
+            "",
+        ])
     return "\r\n".join(lines).encode("utf-8-sig")
 
 
@@ -264,6 +277,12 @@ def _base_adapter_config(config, account, account_id, mapping_profile):
         },
         "field_map": {},
     }
+    if account.adapter_transport == "mmap":
+        value.update({
+            "adapter_transport": "mmap",
+            "mmap_name": effective_mmap_name(config.data_dir, account),
+            "mmap_size": account.mmap_size,
+        })
     if account.account_type == "CREDIT":
         value.update({
             "credit_query_wrapper_verified": False,
@@ -289,6 +308,40 @@ def _base_adapter_config(config, account, account_id, mapping_profile):
             },
         })
     return value
+
+
+def _mmap_deployment_config(path, baseline, reset_profile=False):
+    if not os.path.isfile(path):
+        return baseline
+    existing = _read_json_object(path, "QMT Adapter 配置")
+    binding_fields = ("account_alias", "account_type", "adapter_instance", "qmt_account_id")
+    if any(existing.get(name) != baseline[name] for name in binding_fields):
+        # A changed account must complete its own P0 binding, even when the
+        # caller deliberately preserves an old Profile file for inspection.
+        return baseline
+    merged = dict(baseline)
+    merged.update(existing)
+    controlled_fields = (
+        "account_alias", "account_type", "adapter_instance", "qmt_account_id",
+        "data_dir", "key_file", "mapping_profile", "strategy_name", "qmt_mode",
+        "adapter_transport", "mmap_name", "mmap_size", "max_message_bytes",
+        "price_guard_max_quote_age_seconds", "command_poll_interval_ms",
+        "order_deal_reconcile_seconds", "adapter_max_volume", "adapter_max_notional",
+        "limited_auto_credit_enabled", "adapter_max_auto_session_notional",
+        "adapter_max_auto_orders", "adapter_min_auto_order_interval_seconds",
+        "adapter_max_auto_concurrent_orders", "adapter_max_auto_symbol_position_notional",
+        "adapter_max_auto_account_drawdown", "credit_query_cooldown_seconds",
+        "credit_snapshot_max_age_seconds", "minimum_maintenance_ratio",
+    )
+    for name in controlled_fields:
+        if name in baseline:
+            merged[name] = baseline[name]
+    for name in ("expected_profile_id", "expected_qmt_build", "expected_broker_build"):
+        if reset_profile:
+            merged[name] = baseline[name]
+        if not isinstance(merged[name], str) or not merged[name].strip():
+            raise ManagerError("INVALID_ADAPTER_CONFIG", "保留的 %s 必须为非空字符串" % name, {"path": path})
+    return merged
 
 
 def generate_qmt_bundle(
@@ -339,17 +392,27 @@ def generate_qmt_bundle(
         "signature": "",
     }
     adapter_config = _base_adapter_config(config, account, account_id, profile_path)
+    if account.adapter_transport == "mmap":
+        adapter_config = _mmap_deployment_config(adapter_config_path, adapter_config, reset_profile=reset_profile)
     template_path = _adapter_template_path()
     try:
         with open(template_path, "r", encoding="utf-8") as stream:
             template = stream.read()
     except OSError as exc:
         raise ManagerError("ASSET_MISSING", "缺少 QMT Adapter 模板: %s" % exc, {"path": template_path})
-    marker = 'ADAPTER_CONFIG_PATH = r"D:\\workbuddy-qmt-bridge\\config\\qmt_adapter.json"'
-    if template.count(marker) != 1:
-        raise ManagerError("ASSET_INVALID", "QMT Adapter 模板中的配置路径标记不唯一", {"path": template_path})
-    path_literal = json.dumps(adapter_config_path, ensure_ascii=True)
-    script = template.replace(marker, "ADAPTER_CONFIG_PATH = %s" % path_literal)
+    if account.adapter_transport == "mmap":
+        from .mmap_adapter import render_mmap_adapter
+        key_data = _read_json_object(config.key_file, "消息密钥")
+        script = render_mmap_adapter(
+            template, adapter_config, key_data,
+            effective_mmap_name(config.data_dir, account), account.mmap_size,
+        )
+    else:
+        marker = 'ADAPTER_CONFIG_PATH = r"D:\\workbuddy-qmt-bridge\\config\\qmt_adapter.json"'
+        if template.count(marker) != 1:
+            raise ManagerError("ASSET_INVALID", "QMT Adapter 模板中的配置路径标记不唯一", {"path": template_path})
+        path_literal = json.dumps(adapter_config_path, ensure_ascii=True)
+        script = template.replace(marker, "ADAPTER_CONFIG_PATH = %s" % path_literal)
     try:
         script_bytes = script.encode("gbk")
     except UnicodeEncodeError:
@@ -429,6 +492,8 @@ def _adapter_sync_issues(config, account, script_path, adapter_path, profile_pat
             "credit_query_cooldown_seconds", "credit_snapshot_max_age_seconds",
             "minimum_maintenance_ratio",
         )
+    if account.adapter_transport == "mmap":
+        sync_fields += ("adapter_transport", "mmap_name", "mmap_size")
     drift = [name for name in sync_fields if adapter.get(name) != expected.get(name)]
     if drift:
         issues.append("与 bridge.json 不同步: %s" % ", ".join(drift))
@@ -436,10 +501,27 @@ def _adapter_sync_issues(config, account, script_path, adapter_path, profile_pat
     try:
         with open(script_path, "r", encoding="gbk") as stream:
             script = stream.read()
-        expected_marker = "ADAPTER_CONFIG_PATH = %s" % json.dumps(os.path.abspath(adapter_path), ensure_ascii=True)
-        if script.count(expected_marker) != 1:
-            issues.append("qmt_adapter.py 未绑定当前 qmt_adapter.json 绝对路径")
-    except (OSError, UnicodeError) as exc:
+        if account.adapter_transport == "mmap":
+            bindings = [node.value for node in ast.parse(script).body
+                        if isinstance(node, ast.Assign) and any(
+                            isinstance(target, ast.Name) and target.id == "MMAP_BOOTSTRAP"
+                            for target in node.targets)]
+            binding = ast.literal_eval(bindings[0]) if len(bindings) == 1 else None
+            expected_binding = {
+                "mapping_name": effective_mmap_name(config.data_dir, account),
+                "mapping_size": account.mmap_size,
+                "account_alias": account.alias,
+                "account_type": account.account_type,
+                "adapter_instance": account.adapter_instance,
+            }
+            if not isinstance(binding, dict) or any(
+                    binding.get(name) != value for name, value in expected_binding.items()):
+                issues.append("qmt_adapter.py 的 MMAP_BOOTSTRAP 未绑定当前映射和账户")
+        else:
+            expected_marker = "ADAPTER_CONFIG_PATH = %s" % json.dumps(os.path.abspath(adapter_path), ensure_ascii=True)
+            if script.count(expected_marker) != 1:
+                issues.append("qmt_adapter.py 未绑定当前 qmt_adapter.json 绝对路径")
+    except (OSError, UnicodeError, SyntaxError, ValueError, TypeError) as exc:
         issues.append("qmt_adapter.py 无法按 GBK 读取: %s" % exc)
 
     issues.extend(_adapter_profile_issues(config, adapter, profile))
@@ -633,6 +715,31 @@ def set_account_enabled(config_path, account_alias, enabled):
         shutil.copy2(backup, config_path)
         raise
     return {"changed": True, "backup": backup, "account_alias": account.alias, "enabled": bool(enabled)}
+
+
+def _configure_account_transport(config_path, account, args):
+    requested = {}
+    for option, name in (("transport", "adapter_transport"), ("mmap_name", "mmap_name"), ("mmap_size", "mmap_size")):
+        value = getattr(args, option, None)
+        if value is not None:
+            requested[name] = value
+    result = {"account_alias": account.alias, "enabled": account.enabled, "changed": False, "backup": None}
+    if not requested:
+        return result
+    raw = _read_json_object(config_path, "Bridge 配置")
+    item = next(item for item in raw["accounts"] if item["alias"] == account.alias)
+    if all(name in item and item[name] == value for name, value in requested.items()):
+        return result
+    item.update(requested)
+    backup = _backup(config_path)
+    try:
+        atomic_write_json(config_path, raw)
+        load_config(config_path)
+    except Exception:
+        shutil.copy2(backup, config_path)
+        raise
+    result.update(changed=True, backup=backup)
+    return result
 
 
 def _desktop_dir():
@@ -1381,13 +1488,20 @@ def run_account_command(args, config_path):
                     "账户尚未启用，请先运行 account enable",
                     {"account_alias": account.alias},
                 )
+            if args.account_command == "configure":
+                change = _configure_account_transport(config_path, account, args)
             account_id = args.qmt_account_id or infer_qmt_account_id(config_path, account)
             bundle = None
             warnings = []
             if account_id:
-                bundle = generate_qmt_bundle(
-                    config_path, account.alias, account_id, overwrite=args.force,
-                )
+                try:
+                    bundle = generate_qmt_bundle(
+                        config_path, account.alias, account_id, overwrite=args.force,
+                    )
+                except Exception:
+                    if args.account_command == "configure" and change.get("changed"):
+                        shutil.copy2(change["backup"], config_path)
+                    raise
             else:
                 warnings.append("尚未提供 QMT 账户号，账户已启用但未生成 QMT 文件")
             result = {
@@ -1841,6 +1955,9 @@ def build_parser():
     account_configure = account_sub.add_parser("configure", help="为已启用账户重新生成 QMT 配置")
     account_configure.add_argument("account_alias")
     account_configure.add_argument("--qmt-account-id", required=True)
+    account_configure.add_argument("--transport", choices=("file", "mmap"), help="仅显式指定时修改传输方式；默认沿用已有设置")
+    account_configure.add_argument("--mmap-name", help="Local\\ 命名映射名；空字符串表示按运行目录和实例派生")
+    account_configure.add_argument("--mmap-size", type=int, help="映射大小，65536-16777216 字节")
     account_configure.add_argument("--force", action="store_true")
     account_configure.add_argument("--human", action="store_true")
     return parser

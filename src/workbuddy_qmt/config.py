@@ -1,3 +1,4 @@
+import hashlib
 import ipaddress
 import json
 import math
@@ -14,6 +15,7 @@ DEFAULT_SPECIAL_PREFIXES = ("688", "689")
 CREDIT_BUY_ACTIONS = {"MARGIN_BUY", "COLLATERAL_BUY"}
 CREDIT_SELL_ACTIONS = {"COLLATERAL_SELL", "SHORT_SELL"}
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+SAFE_MMAP_NAME_RE = re.compile(r"Local\\[A-Za-z0-9_-]{1,200}")
 
 TOP_LEVEL_FIELDS = {
     "data_dir", "host", "port", "default_mode", "max_message_bytes",
@@ -24,6 +26,7 @@ ACCOUNT_FIELDS = {
     "odd_lot_sell_allowed", "instrument_allowlist", "credit_action_mapping",
     "credit_action_priority", "order_volume_rules", "risk_limits",
     "limited_auto_credit_enabled",
+    "adapter_transport", "mmap_name", "mmap_size",
 }
 RISK_INTEGER_RANGES = {
     "max_order_volume": (1, 2147483647),
@@ -74,6 +77,9 @@ class AccountConfig:
     credit_buy_action: str = "MARGIN_BUY"
     credit_sell_action: str = "COLLATERAL_SELL"
     limited_auto_credit_enabled: bool = False
+    adapter_transport: str = "file"
+    mmap_name: str = ""
+    mmap_size: int = 4194304
 
     def minimum_order_volume(self, symbol, side):
         code = symbol.split(".", 1)[0]
@@ -141,6 +147,14 @@ def _absolute(base, value):
     if os.path.isabs(value):
         return os.path.abspath(value)
     return os.path.abspath(os.path.join(base, value))
+
+
+def effective_mmap_name(data_dir, account):
+    """Resolve the installation- and instance-specific Windows mapping name."""
+    if account.mmap_name:
+        return account.mmap_name
+    identity = os.path.normcase(os.path.abspath(data_dir)) + "\0" + account.adapter_instance
+    return "Local\\WBQMT_" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:32]
 
 
 def _positive_int(value, name):
@@ -339,6 +353,7 @@ def load_config(path=None):
     accounts = {}
     risks = {}
     adapter_instances = set()
+    enabled_mappings = set()
     for item in accounts_raw:
         if not isinstance(item, dict):
             raise BridgeError("CONFIG_ERROR", "each account must be an object")
@@ -354,6 +369,13 @@ def load_config(path=None):
         account_type = item.get("account_type")
         if account_type not in ACCOUNT_TYPES:
             raise BridgeError("CONFIG_ERROR", "invalid account_type")
+        adapter_transport = item.get("adapter_transport", "file")
+        if not isinstance(adapter_transport, str) or adapter_transport not in {"file", "mmap"}:
+            raise BridgeError("CONFIG_ERROR", "adapter_transport must be file or mmap")
+        mmap_name = item.get("mmap_name", "")
+        if not isinstance(mmap_name, str) or (mmap_name and not SAFE_MMAP_NAME_RE.fullmatch(mmap_name)):
+            raise BridgeError("CONFIG_ERROR", "mmap_name must be empty or a safe Local\\ ASCII name without dots or slashes")
+        mmap_size = _bounded_int(item.get("mmap_size", 4194304), "mmap_size", 65536, 16777216)
         min_buy, min_sell, volume_overrides = _order_volume_config(item)
         credit_buy, credit_sell = _credit_actions(item, account_type)
         lot_size = _positive_int(item.get("lot_size", 100), "lot_size")
@@ -384,11 +406,19 @@ def load_config(path=None):
                 item.get("limited_auto_credit_enabled", False),
                 "limited_auto_credit_enabled",
             ),
+            adapter_transport=adapter_transport,
+            mmap_name=mmap_name,
+            mmap_size=mmap_size,
         )
         if account.alias in accounts:
             raise BridgeError("CONFIG_ERROR", "duplicate account alias")
         if account.adapter_instance in adapter_instances:
             raise BridgeError("CONFIG_ERROR", "duplicate adapter_instance")
+        if account.enabled and account.adapter_transport == "mmap":
+            mapping_name = effective_mmap_name(data_dir, account)
+            if mapping_name in enabled_mappings:
+                raise BridgeError("CONFIG_ERROR", "enabled mmap accounts must not share a mapping name")
+            enabled_mappings.add(mapping_name)
         accounts[account.alias] = account
         adapter_instances.add(account.adapter_instance)
         risks[account.alias] = _risk_limits(item.get("risk_limits", {}), account.alias)

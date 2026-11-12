@@ -117,7 +117,18 @@ class EventIngester:
                 (status, payload["message_id"]),
             )
         if payload.get("intent_id"):
-            if status in TERMINAL_INTENT_STATES:
+            if status in {"SUBMIT_UNKNOWN", "SUBMIT_CALLED"}:
+                # Transport/restart evidence cannot undo a known broker
+                # acknowledgement or fill which arrived before this ACK.
+                prior = ['QUEUED', 'PRE_SUBMIT', 'ACKNOWLEDGED', 'SUBMIT_CALLED']
+                if status == 'SUBMIT_UNKNOWN':
+                    prior.append('SUBMIT_UNKNOWN')
+                connection.execute(
+                    "UPDATE trade_intents SET status=?,updated_at=? WHERE intent_id=? "
+                    "AND status IN (%s)" % ','.join('?' for _ in prior),
+                    [status, received, payload["intent_id"]] + prior,
+                )
+            elif status in TERMINAL_INTENT_STATES:
                 connection.execute(
                     "UPDATE trade_intents SET status=?,updated_at=? WHERE intent_id=?",
                     (status, received, payload["intent_id"]),
